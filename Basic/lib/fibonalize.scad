@@ -17,6 +17,7 @@
 
 
 module fibonalize(N=100,spin=false) {
+    N = N + 1; // because we gonna skip last one (see below)
     PHI = 2.618033; // golden section
     union() {
         for(i=[1:N-1]) { // skip last one, because often too close to another one
