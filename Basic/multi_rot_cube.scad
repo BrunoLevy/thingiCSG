@@ -1,8 +1,8 @@
 n = 70;
-alpha = 60/n;
+alpha = 90/n;
 
 union() {
-   for(i=[0:n])
+   for(i=[0:n-1])
       rotate(i*alpha)
          cube(center=true);
 }

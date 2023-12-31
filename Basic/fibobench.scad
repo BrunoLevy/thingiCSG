@@ -1,3 +1,3 @@
 include <lib/fibonalize.scad>
 
-fibonalize(R=0.5,N=100) import("bunnies/bunny_75k.stl");
+fibonalize(N=100) scale(0.5) import("bunnies/bunny_75k.stl");
