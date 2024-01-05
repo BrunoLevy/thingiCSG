@@ -5,9 +5,10 @@ module ecaille() {
         union() {
             difference() {
                 cylinder(center=true,h=0.3,$fn=20);
-                translate([-0.05,0,0.1]) cube(size=[0.1, 1.5, 0.1]);
+                for(alpha=[-60 : 20 : 60])
+                    translate([-0.05,0,0.1]) rotate(alpha)  cube(size=[0.1, 1.5, 0.1]);
             }
-            translate([0,0,0.1]) sphere(r=0.2,$fn=10);
+            translate([0,0,0.1]) sphere(r=0.35,$fn=20);
         }
         translate([0,0.5,-0.1]) cylinder(center=true,h=0.3,$fn=20);
     }
