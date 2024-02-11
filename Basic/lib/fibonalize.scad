@@ -27,7 +27,7 @@ module fibonalize(N=100,spin=false) {
            phi = (z+1)*90;
            gamma = spin ? theta : 0;
            c = cos(theta); // OpenSCAD's sin() and cos() take angles
-           s = sin(theta); // in degrees !!! (omg !)
+           s = sin(theta); // in degrees !!! (makes sense, but ... omg !)
            x = r*c; 
            y = r*s; 
            Z = [x,y,z];
