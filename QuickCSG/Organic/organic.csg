@@ -1,0 +1,15 @@
+union() {
+   difference() {
+      import(file="bunny_remap.off");
+      import(file="ears_box.off");
+   }
+   difference() {
+      import(file="0.off");
+      import(file="dragon_box.off");
+   }
+   difference() {
+      import(file="1.off");
+      import(file="head_box.off");
+   }
+}
+

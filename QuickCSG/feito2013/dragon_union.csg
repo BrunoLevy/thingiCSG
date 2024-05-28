@@ -1,0 +1,4 @@
+union() {
+   import(file="dragon_transformed.off");
+   import(file="dragon_vrip.off");
+}

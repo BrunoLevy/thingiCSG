@@ -1,0 +1,4 @@
+difference() {
+  import(file="Armadillo_150k.off");
+  import(file="armadillo_transformed.off");
+}

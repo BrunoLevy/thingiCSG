@@ -9,7 +9,7 @@ module multi_rot_cube(N=10) {
 }
 
 
-multi_rot_cube(N=10);
+multi_rot_cube(N=50);
 
    
 

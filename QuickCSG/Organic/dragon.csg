@@ -1,0 +1,5 @@
+intersection() {
+   import(file="orig/0.off");
+   import(file="dragon_box.off");
+}
+
