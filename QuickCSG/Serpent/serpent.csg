@@ -1,0 +1,7 @@
+union() {
+   import(file="data/serpent/serp_3.off");
+   import(file="data/serpent/serp_4.off");
+   import(file="data/serpent/serp_5.off");
+   import(file="data/serpent/serp_6.off");
+   import(file="data/serpent/serp_7.off");
+}
