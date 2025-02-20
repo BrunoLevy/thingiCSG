@@ -8,5 +8,6 @@
 - [flying_saucer_v3](https://www.thingiverse.com/thing:10428)
 - [makerBeam](https://www.thingiverse.com/thing:27825)
 - [pirateship.1](https://www.thingiverse.com/thing:12856)
+- [heartgears](https://www.thingiverse.com/thing:6291)
 
 
