@@ -11,5 +11,7 @@
 - [heartgears](https://www.thingiverse.com/thing:6291)
 - [brio_...](https://www.thingiverse.com/thing:43278)
 - [trilego,block](https://www.thingiverse.com/thing:13531)
+- [planetarygear](https://www.thingiverse.com/thing:138222)
+- [sphericalgear](https://www.thingiverse.com/thing:4891425)
 
 
