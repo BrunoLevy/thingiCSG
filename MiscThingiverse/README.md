@@ -14,4 +14,15 @@
 - [planetarygear](https://www.thingiverse.com/thing:138222)
 - [sphericalgear](https://www.thingiverse.com/thing:4891425)
 - [gegriebe_...](https://www.thingiverse.com/thing:1604369)
+- [dalek](https://www.thingiverse.com/thing:192937)
+- [chainmail_v1-0](https://www.thingiverse.com/thing:45203)
+- [10_nested_cubes_...](https://www.thingiverse.com/thing:1734291)
+- [chain](https://www.thingiverse.com/thing:28405)
+- [birdcage](https://www.thingiverse.com/thing:49612)
+- [E3D_holder_for_3dr](https://www.thingiverse.com/thing:285405)
+- [ThumbWheelM3](https://www.thingiverse.com/thing:874155)
+- [3j45](https://www.thingiverse.com/thing:2222486)
+- [cube](https://www.thingiverse.com/thing:1856832)
+- [X-axis...](https://www.thingiverse.com/thing:833722)
+
 

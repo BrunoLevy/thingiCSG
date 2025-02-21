@@ -1,4 +1,4 @@
-include <lib/brio.scad>
+include <../lib/brio.scad>
 
 //brio_straight(LENGTH);
 //brio_straight((3/4)*LENGTH);
