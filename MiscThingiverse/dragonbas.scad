@@ -1,6 +1,7 @@
  ////////////////////
 //Dragon Pose generator by Torleif Ceder 2015 Creative Commons - Attribution - Share Alike
 ////////////////////
+// [Bruno] added random seed to all calls of rands() for reproductibility
 // preview[view:south west,tilt:top diagonal]
 //RandomSeed
 /* [Dragon] */
@@ -29,7 +30,7 @@ WingTargetFront=crnd(WingTargetspan)-0.5;//[-1:0.05:1]
 
 WingTargetRoll=crnd(WingTargetspan*0.5);//[-1:0.05:1]
 WingTargetYaw=crnd(WingTargetspan*0.5);//[-1:0.05:1]
-//Wingspan = Wingsize * 2 + rands(-Wingsize * 0.4,Wingsize * 0.4,1)[0];
+//Wingspan = Wingsize * 2 + rands(-Wingsize * 0.4,Wingsize * 0.4,1,seed)[0];
 Wingspan = Wingsize * WingTargetspan;
 /* [Head] */
 ShowHeadTarget=0;//[1:on,0:off]
@@ -362,10 +363,10 @@ bone(FrontLeftjoint,Leftknuckle2,0.5);bone(Leftknuckle2,Leftwingfinger2,0.5);
     module yourmodule(i,v) {
   //anything in this module will be copeid and rotatdet along curve (v) at (detail) intevall
   //if ((floor(i*10)%10)>1){translate([0,0,bez2(i,v)[3]])scale([0.3,0.1,0.5])sphere(bez2(i,v)[3]); ;}
-  for(j = [rands(0,bez2(i,v)[3] * 2,1)[0]: 360 / rad / bez2(i,v)[3]: 360]) {
+  for(j = [rands(0,bez2(i,v)[3] * 2,1,seed)[0]: 360 / rad / bez2(i,v)[3]: 360]) {
     rotate([j,0,0]) translate([0,0,bez2(i,v)[3]])
       // anything here//////////////
-    scale(0.5 * bez2(i,v)[3]) scale([2,1,0.5]) translate([0,0,-0.5]) rotate([0,-10,rands(-5,5,1)[0]])
+    scale(0.5 * bez2(i,v)[3]) scale([2,1,0.5]) translate([0,0,-0.5])rotate([0,-10,rands(-5,5,1,seed)[0]])
     cylinder(d = 1,d2 = 0.5,h = 0.5,$fn = 4);
     //sphere( [bez2(i,v)[3]/2*tang,bez2(i,v)[3]/2,bez2(i,v)[3]/2],$fn= 8,center=true);
     //////////////////
@@ -694,8 +695,8 @@ module extrudeT(v,d=8,start=0,stop=1) {
     }
   }
 
-function rndR()=[rands(0,360,1)[0],rands(0,360,1)[1],rands(0,360,1)[0]];
-function rndV()=[rands(-1,1,1)[0],rands(-1,1,1)[0],rands(-1,1,1)[0]];
+function rndR()=[rands(0,360,1,seed)[0],rands(0,360,1,seed)[1],rands(0,360,1,seed)[0]];
+function rndV()=[rands(-1,1,1,seed)[0],rands(-1,1,1,seed)[0],rands(-1,1,1,seed)[0]];
 function midpointjust(start,end) = start + (end  - start )/2;
 
  function bez4(i, j, v1, v2, v3, v4) = ((bez2(j, v3)) * i + (bez2(j, v4)) * (1 -
@@ -723,8 +724,8 @@ function bez2xy(v) = lim31(1,[v[0],v[1],0]); // down xy projection
 function bez2v(i,v) = lim31(1,bez2(i - 0.0001,v) - bez2(i,v)); // unit vector at i
 function t(v) = [v[0],v[1],v[2]];
 
-function rnd(r) = rands(-r,r,1)[0];
-function crnd(r) = min(1,max(-1,(rands(-r,r,1)[0]+rands(-r,r,1)[0])*0.7));
+function rnd(r) = rands(-r,r,1,seed)[0];
+function crnd(r) = min(1,max(-1,(rands(-r,r,1,seed)[0]+rands(-r,r,1,seed)[0])*0.7));
 
 
 function IK(l,v) = sqrt(pow(l / 2,2) - pow(min(len3(v),l) / 2,2));
@@ -748,7 +749,7 @@ function crosst(p1,p2)=[p1[1]*p2[2]-p1[2]*p2[1],p1[2]*p2[0]-p1[0]*p2[2],p1[0]*p2
 function un(v) = v / len3(v);
 
 function mmul(v1,v2) = [v1[0] * v2[0],v1[1] * v2[1],v1[2] * v2[2]];
-function rndc()=[rands(0,1,1)[0],rands(0,1,1)[0],rands(0,1,1)[0]];
+function rndc()=[rands(0,1,1,seed)[0],rands(0,1,1,seed)[0],rands(0,1,1,seed)[0]];
 function beckham(start,end,length,lookat = [0,1,0],bias = 0.5) = midpoint(start,end,bias) + (un(flipxy(end - start)) * un(lookat)[1] * IK(length,(end - start)) + un(flipxz(end - start)) * un(lookat)[2] * IK(length,(end - start)) + un(end - start) * un(lookat)[0] * IK(length,(end - start)));
 
 function pele(start,end,lookat = [0,0,4]) = midpoint(t(start),t(end)) + un(flipxy(t(end) - t(start))) * lookat[1] + un(flipxz(t(end) - t(start))) * lookat[2] + un(t(end) - t(start)) * lookat[0];
