@@ -1,7 +1,15 @@
 #!/bin/sh
 
-sources=`ls *.scad`
+sources=""
 engine="geogram"
+
+usage()
+{
+cat <<END
+Usage: compute_all.sh -engine [geogram | CGAL | manifold] -i inputfile(s)
+END
+}
+
 
 while [ -n "$1" ]; do
 
@@ -14,12 +22,20 @@ while [ -n "$1" ]; do
 
        -i)
           shift
-	  sources=$1
+	  while [ -n "$1" ]; do
+	     sources="$sources $1"
+	     shift
+	  done
+	  ;;
+
+        -h)
 	  shift
+	  usage
 	  ;;
 
         *)
           echo "Error: unrecognized option: $1"
+	  usage
           return 1
           ;;
 
@@ -58,6 +74,7 @@ case "$engine" in
 
    *)
       echo "Error: unrecognized engine: $engine"
+      usage
       return 1
       ;;
 esac
