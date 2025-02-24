@@ -6,7 +6,7 @@ engine="geogram"
 usage()
 {
 cat <<END
-Usage: compute_all.sh -engine [geogram | CGAL | manifold] -i inputfile(s)
+Usage: compute_all.sh -engine [geogram | CGAL | coref | manifold] -i inputfile(s)
 END
 }
 

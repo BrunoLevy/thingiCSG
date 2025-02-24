@@ -36,6 +36,10 @@
 - [beams](https://www.thingiverse.com/thing:6898072)
 - [hex_maze_projection](https://www.thingiverse.com/thing:2098866)
 - [Basket_Corner](https://www.thingiverse.com/thing:5149385)
-
-
-
+- [RadialSupport](https://www.thingiverse.com/thing:5147448)
+- [RainGaugeScreen](https://www.thingiverse.com/thing:736176)
+- [heptagonal_iris, overarching_ex_8, Regular_Tri_18_faces_A2, RM46_sub_10](https://www.thingiverse.com/thing:2865540)
+- [SnapConnectorLibrary](https://www.thingiverse.com/thing:3100539)
+- [servo_arm_parametric_gear](https://www.thingiverse.com/thing:2417814)
+- [non-circular-gear](https://www.thingiverse.com/thing:3804927)
+- [hanging_reel_filament_guide,YAF_body4grommet.scad](https://www.thingiverse.com/thing:1798803)
