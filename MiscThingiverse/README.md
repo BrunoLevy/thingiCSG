@@ -32,5 +32,10 @@
 - [random_maze_cube_generator](https://www.thingiverse.com/thing:1191166)
 - [maze_pyramid_generator_easy_style](https://www.thingiverse.com/thing:1269336)
 - [vase_v1,vase_v2](https://www.thingiverse.com/thing:2918107)
+- [mase_generator](https://www.thingiverse.com/thing:1185425)
+- [beams](https://www.thingiverse.com/thing:6898072)
+- [hex_maze_projection](https://www.thingiverse.com/thing:2098866)
+- [Basket_Corner](https://www.thingiverse.com/thing:5149385)
+
 
 
