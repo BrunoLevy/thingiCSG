@@ -28,5 +28,9 @@
 - [make-buky...,makewater](https://www.thingiverse.com/thing:12675)
 - [chess_puzzle_soccer](https://www.thingiverse.com/thing:1547895)
 - [plow](https://www.thingiverse.com/thing:54071)
+- [soccer_puzzle](https://www.thingiverse.com/thing:1534279)
+- [random_maze_cube_generator](https://www.thingiverse.com/thing:1191166)
+- [maze_pyramid_generator_easy_style](https://www.thingiverse.com/thing:1269336)
+- [vase_v1,vase_v2](https://www.thingiverse.com/thing:2918107)
 
 
