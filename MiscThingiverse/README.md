@@ -26,5 +26,7 @@
 - [X-axis...](https://www.thingiverse.com/thing:833722)
 - [xmas-2014](https://www.thingiverse.com/thing:606238)
 - [make-buky...,makewater](https://www.thingiverse.com/thing:12675)
+- [chess_puzzle_soccer](https://www.thingiverse.com/thing:1547895)
+- [plow](https://www.thingiverse.com/thing:54071)
 
 

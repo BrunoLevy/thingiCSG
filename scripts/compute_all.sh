@@ -45,6 +45,7 @@ done
 case "$engine" in
    geogram)
       command="compute_CSG"
+#     flags='coplanar_angle=0.1'
       flags=""
       extension=".geogram"
       args=""
