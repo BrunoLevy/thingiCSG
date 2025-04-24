@@ -43,3 +43,5 @@
 - [servo_arm_parametric_gear](https://www.thingiverse.com/thing:2417814)
 - [non-circular-gear](https://www.thingiverse.com/thing:3804927)
 - [hanging_reel_filament_guide,YAF_body4grommet.scad](https://www.thingiverse.com/thing:1798803)
+- [elliptical_propblade](https://www.thingiverse.com/thing:5300828)
+- [Spiral_Pod_Holder_v3](https://www.thingiverse.com/thing:2843291)
