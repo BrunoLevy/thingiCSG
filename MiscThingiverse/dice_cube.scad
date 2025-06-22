@@ -18,7 +18,7 @@ llx = 20;
 lly = 20;
 llz = 20;
 
-include<ArchitectsDaughter.scad>
+include<lib/ArchitectsDaughter.scad>
 
 difference()
 {

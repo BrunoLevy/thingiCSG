@@ -20,7 +20,7 @@ radius = 3;
 ft = sc + radius;
 gr =  (1 + sqrt(5))/2;
 
-include <ArchitectsDaughter.scad>
+include <lib/ArchitectsDaughter.scad>
 
 rotate([69.1,0,0])
 difference()

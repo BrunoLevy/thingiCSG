@@ -11,7 +11,7 @@ radius = 3;
 sc = 12;
 lsc = sc + 2 * radius;
 
-  include <ArchitectsDaughter.scad>
+  include <lib/ArchitectsDaughter.scad>
 
 
 rotate([0,(acos(-1/3))/2,0])

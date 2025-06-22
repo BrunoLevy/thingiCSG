@@ -15,7 +15,7 @@ side     = overall scale
  lsc = side+2*radius;
 
 
-include <ArchitectsDaughter.scad>
+include <lib/ArchitectsDaughter.scad>
 
 rotate([180,0,0])
 rotate([0,atan(sqrt(2)),0])

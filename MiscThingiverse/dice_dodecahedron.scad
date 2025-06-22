@@ -16,7 +16,7 @@ lsc = sc +radius;
 gr =  (1 + sqrt(5))/2;
 rgr = 1/gr;
 
-include <ArchitectsDaughter.scad>
+include <lib/ArchitectsDaughter.scad>
 
 
 
