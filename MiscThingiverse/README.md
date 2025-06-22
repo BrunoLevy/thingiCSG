@@ -65,6 +65,12 @@
 - [squid,squid3](https://www.thingiverse.com/thing:141553)
 - [27_to_1_1..4](https://www.thingiverse.com/thing:9454)
 - [Wheels_0..8](https://www.thingiverse.com/thing:45914)
-
-
-
+- [meshbowl,foambowl](https://www.thingiverse.com/thing:10133)
+- [easy_gyro](https://www.thingiverse.com/thing:802145)
+- [dice_*](https://www.thingiverse.com/thing:30421)
+- [Universal_3D_Printed_Bearing_That_Works](https://www.thingiverse.com/thing:6899986)
+- [SpiroCoarsters](https://www.thingiverse.com/thing:8928)
+- [publicDomainGearV1.1](https://www.thingiverse.com/thing:5505)
+- [impossible_1..4](https://www.thingiverse.com/thing:26334)
+- [ujoint](https://www.thingiverse.com/thing:125939)
+- [HighlyConfigurableWheelv1.32,HighlyConfigurableWheelv1.33](https://www.thingiverse.com/thing:21486)
