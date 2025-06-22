@@ -74,3 +74,4 @@
 - [impossible_1..4](https://www.thingiverse.com/thing:26334)
 - [ujoint](https://www.thingiverse.com/thing:125939)
 - [HighlyConfigurableWheelv1.32,HighlyConfigurableWheelv1.33](https://www.thingiverse.com/thing:21486)
+- [n12_12_12,n_3_3_2](https://www.thingiverse.com/thing:431466)
