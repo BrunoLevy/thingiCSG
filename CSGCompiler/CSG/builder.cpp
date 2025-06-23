@@ -3,6 +3,9 @@
 namespace CSG {
 
     Builder::Builder() {
+        reset_defaults();
+        reset_file_path();
+        verbose_ = false;
     }
 
     std::shared_ptr<Mesh> Builder::square(vec2 size, bool center) {
@@ -108,6 +111,9 @@ namespace CSG {
     }
 
     void Builder::reset_defaults() {
+        fa_ = DEFAULT_FA;
+        fs_ = DEFAULT_FS;
+        fn_ = DEFAULT_FN;
     }
 
     bool Builder::find_file(std::string& filename) {
@@ -122,6 +128,9 @@ namespace CSG {
     }
 
     index_t Builder::get_fragments_from_r(double r, double twist) {
-	return 0;
+        if (fn_ > 0.0) {
+            return index_t(fn_ >= 3 ? fn_ : 3);
+        }
+        return index_t(ceil(fmax(fmin(twist / fa_, r*2*M_PI / fs_), 5)));
     }
 }

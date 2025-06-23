@@ -4,6 +4,7 @@
 #include <CSG/common.h>
 #include <CSG/mesh.h>
 #include <memory>
+#include <filesystem>
 
 namespace CSG {
 
@@ -234,7 +235,7 @@ namespace CSG {
      *  file path contains the current directory "."
      * \param[in] path the file path to be added, without trailing '/'
      */
-    void add_file_path(const std::string& path) {
+    void add_file_path(const std::filesystem::path& path) {
         file_path_.push_back(path);
     }
 
@@ -244,7 +245,7 @@ namespace CSG {
      */
     void reset_file_path() {
         file_path_.clear();
-        file_path_.push_back(".");
+        file_path_.push_back(std::filesystem::current_path());
     }
 
     /**** misc ****/
@@ -280,7 +281,7 @@ namespace CSG {
     double fa_;
     double STL_epsilon_;
     bool verbose_;
-    std::vector<std::string> file_path_;
+    std::vector<std::filesystem::path> file_path_;
     };
 
 }
