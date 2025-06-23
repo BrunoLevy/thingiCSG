@@ -357,7 +357,7 @@ namespace CSG {
 	M->set_dimension(2);
 
         if(!args.has_arg("points") || !args.has_arg("paths")) {
-            syntax_error("polyhedron: missing points or paths");
+            syntax_error("polygon: missing points or paths");
         }
 
         const Value& points = args.get_arg("points");
@@ -368,18 +368,15 @@ namespace CSG {
 	}
 
         if(points.type != Value::ARRAY2D) {
-            syntax_error("polyhedron: wrong points type (expected array)");
+            syntax_error("polygon: wrong points type (expected array)");
         }
 
-	csg_assert_not_reached;
-
-	/*
-        M->vertices.create_vertices(points.array_val.size());
+        M->create_vertices(points.array_val.size());
         for(index_t v=0; v<points.array_val.size(); ++v) {
             if(points.array_val[v].size() != 2) {
                 syntax_error("polyhedron: wrong vertex size (expected 2d)");
             }
-            M->vertices.point<2>(v) = {
+            M->point_2d(v) = {
 		points.array_val[v][0],
 		points.array_val[v][1]
 	    };
@@ -390,11 +387,11 @@ namespace CSG {
         if(paths.type == Value::ARRAY2D ) {
             for(const auto& P : paths.array_val) {
                 for(double v: P) {
-                    if(v < 0.0 || v >= double(M->vertices.nb())) {
+                    if(v < 0.0 || v >= double(M->nb_vertices())) {
                         syntax_error(
                             String::format(
                                 "polygon: invalid vertex index %d (max is %d)",
-                                int(v), int(M->vertices.nb())-1
+                                int(v), int(M->nb_vertices())-1
                             ).c_str()
                         );
                     }
@@ -406,23 +403,22 @@ namespace CSG {
                     // some files do [0,1,2], some others [0,1,2,0], so we need
                     // to test here for null edges.
                     if(v1 != v2) {
-                        M->edges.create_edge(v1,v2);
+                        M->create_edge(v1,v2);
                     }
                 }
             }
         } else if(paths.type == Value::NONE) {
             for(index_t v1=0; v1 < points.array_val.size(); ++v1) {
                 index_t v2 = (v1+1)%points.array_val.size();
-                M->edges.create_edge(v1,v2);
+                M->create_edge(v1,v2);
             }
         } else {
             syntax_error(
-                "polyhedron: wrong path type (expected array or undef)"
+                "polygon: wrong path type (expected array or undef)"
             );
         }
 
-        M->update_bbox();
-	*/
+        M->update();
 
         return M;
     }
@@ -544,18 +540,24 @@ namespace CSG {
         return builder_->difference(scope);
     }
 
-    std::shared_ptr<Mesh> Compiler::group(const ArgList& args, const Scope& scope) {
+    std::shared_ptr<Mesh> Compiler::group(
+	const ArgList& args, const Scope& scope
+    ) {
         csg_argused(args);
         return builder_->group(scope);
     }
 
-    std::shared_ptr<Mesh> Compiler::color(const ArgList& args, const Scope& scope) {
+    std::shared_ptr<Mesh> Compiler::color(
+	const ArgList& args, const Scope& scope
+    ) {
         vec4 C(1.0, 1.0, 1.0, 1.0);
         C = args.get_arg("arg_0",C);
         return builder_->color(C,scope);
     }
 
-    std::shared_ptr<Mesh> Compiler::hull(const ArgList& args, const Scope& scope) {
+    std::shared_ptr<Mesh> Compiler::hull(
+	const ArgList& args, const Scope& scope
+    ) {
         csg_argused(args);
         return builder_->hull(scope);
     }

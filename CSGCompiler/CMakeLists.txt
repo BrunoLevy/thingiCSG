@@ -4,7 +4,8 @@ project(CSGCompiler VERSION 1.0 LANGUAGES CXX)
 include_directories(. glm)
 
 set(SOURCES
-    CSG/common.cpp CSG/mesh.cpp CSG/builder.cpp CSG/compiler.cpp
+    CSG/common.cpp CSG/mesh.cpp CSG/mesh_io.cpp CSG/builder.cpp CSG/compiler.cpp
+    CSG/line_stream.cpp
     main.cpp
 )
 

@@ -218,6 +218,9 @@ namespace CSG {
      */
     void set_verbose(bool x) {
         verbose_ = x;
+	if(verbose_) {
+	    warnings_ = true;
+	}
     }
 
     /**
@@ -280,6 +283,7 @@ namespace CSG {
     double fs_;
     double fa_;
     bool verbose_;
+    bool warnings_;
     std::vector<std::filesystem::path> file_path_;
     };
 

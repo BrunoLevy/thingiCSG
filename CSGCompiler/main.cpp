@@ -1,5 +1,6 @@
 #include <CSG/builder.h>
 #include <CSG/compiler.h>
+#include <CSG/mesh_io.h>
 
 int main(int argc, char** argv) {
     try {
@@ -11,7 +12,9 @@ int main(int argc, char** argv) {
 	compiler.set_verbose(true);
 	std::shared_ptr<CSG::Mesh> result = compiler.compile_file(argv[1]);
 	if(result != nullptr) {
-	    result->save("out.stl");
+	    mesh_save(*result, std::filesystem::path("out.stl"));
+	} else {
+	    CSG::Logger::err("CSGCompiler") << "Result is empty" << std::endl;
 	}
     } catch(const std::exception& e) {
 	std::cerr << "Received an exception: " << e.what() << std::endl;

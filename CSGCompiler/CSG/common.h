@@ -1,6 +1,8 @@
 #ifndef CSG_COMMON
 #define CSG_COMMON
 
+#include <CSG/defs.h>
+
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
@@ -46,6 +48,7 @@ namespace CSG {
     );
 
     typedef uint32_t index_t;
+    static constexpr index_t NO_INDEX = index_t(-1);
 
     typedef glm::dvec2 vec2;
     typedef glm::dvec3 vec3;
@@ -55,10 +58,25 @@ namespace CSG {
     typedef glm::ivec2 ivec2;
     typedef glm::ivec3 ivec3;
 
+    using glm::normalize;
+    using glm::cross;
+
+    inline std::ostream& operator<<(std::ostream& out, vec2 v) {
+	return (out << v.x << ' ' << v.y);
+    }
+
+    inline std::ostream& operator<<(std::ostream& out, vec3 v) {
+	return (out << v.x << ' ' << v.y << ' ' << v.z);
+    }
+
+    inline std::ostream& operator<<(std::ostream& out, vec4 v) {
+	return (out << v.x << ' ' << v.y << ' ' << v.z << ' ' << v.w);
+    }
 
     inline double round(double x) {
         return ((x - floor(x)) > 0.5 ? ceil(x) : floor(x));
     }
+
 
     /**
      * \brief vector with index_t indices and bounds checking in debug mode.
@@ -137,6 +155,36 @@ namespace CSG {
         }
 
         /**
+         * \brief Converts a C string to a typed value
+         * \details This is a generic version that uses a std::istringstream
+         * to extract the value from the string.
+         * \param[in] s the source string
+         * \param[out] value the typed value
+         * \retval true if the conversion was successful
+         * \retval false otherwise
+         */
+        template <class T>
+        inline bool from_string(const char* s, T& value) {
+            std::istringstream in(s);
+            return (in >> value) && (in.eof() || ((in >> std::ws) && in.eof()));
+        }
+
+        /**
+         * \brief Converts a std::string to a typed value
+         * \details This is a generic version that uses a std::istringstream
+         * to extract the value from the string.
+         * \param[in] s the source string
+         * \param[out] value the typed value
+         * \retval true if the conversion was successful
+         * \retval false otherwise
+         */
+        template <class T>
+        inline bool from_string(const std::string& s, T& value) {
+            return from_string(s.c_str(), value);
+        }
+
+
+        /**
          * \brief Creates a string from a format string and additional
          *  arguments. Works like sprintf()
          * \param[in] format the format string
@@ -159,8 +207,13 @@ namespace CSG {
 	}
 
 	inline std::ostream& err(const std::string& cat) {
-	    return std::cerr << "[" << cat << "] ";
+	    return std::cerr << "[E]-[" << cat << "] ";
 	}
+
+	inline std::ostream& warn(const std::string& cat) {
+	    return std::cerr << "[W]-[" << cat << "] ";
+	}
+
     }
 }
 
