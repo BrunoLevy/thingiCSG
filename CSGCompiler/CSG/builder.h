@@ -52,7 +52,7 @@ namespace CSG {
         vec2 origin = vec2(0.0, 0.0), vec2 scale = vec2(1.0,1.0)
     );
 
-    virtual std::shared_ptr<Mesh> surface(
+    virtual std::shared_ptr<Mesh> surface_with_OpenSCAD(
         const std::string& filename, bool center, bool invert
     );
 
@@ -255,7 +255,7 @@ namespace CSG {
 
     protected:
 
-    bool find_file(std::string& filename);
+    bool find_file(std::filesystem::path& filename);
 
     /**
      * \brief For the file formats that are not supported by geogram,

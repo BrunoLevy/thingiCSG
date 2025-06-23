@@ -126,6 +126,11 @@ namespace CSG {
     std::shared_ptr<Mesh> Compiler::compile_file(
 	const std::filesystem::path& input_filename
     ) {
+        // Add the directory that contains the file to the builder's file path,
+        // so that import() instructions are able to find files in the same
+        // directory.
+        builder_->add_file_path(input_filename.parent_path());
+
         if(
             input_filename.extension() == ".scad" ||
             input_filename.extension() == ".SCAD"
@@ -153,6 +158,7 @@ namespace CSG {
 
             result = compile_file(tmpscad);
 	    std::filesystem::remove(tmpscad);
+	    builder_->reset_file_path();
             return result;
         }
 
@@ -190,17 +196,13 @@ namespace CSG {
             );
         }
 
-        // Add the directory that contains the file to the builder's file path,
-        // so that import() instructions are able to find files in the same
-        // directory.
-        builder_->add_file_path(input_filename.parent_path());
         std::shared_ptr<Mesh> result = compile_string(source);
-        builder_->reset_file_path();
 
         if(result != nullptr && result->dimension() == 2) {
             result->set_dimension(3);
         }
 
+        builder_->reset_file_path();
         return result;
     }
 
@@ -442,7 +444,7 @@ namespace CSG {
         std::string filename  = args.get_arg("file", std::string(""));
         bool center = args.get_arg("center", false);
         bool invert = args.get_arg("invert", false);
-        return builder_->surface(filename, center, invert);
+        return builder_->surface_with_OpenSCAD(filename, center, invert);
     }
 
 
@@ -638,7 +640,8 @@ namespace CSG {
             index_t cur_line = index_t(line());
             Logger::out("CSG") << "Executed " << instr_or_object_name
                                << " at line " << cur_line << "/" << lines_
-                               << "  (" << index_t(cur_line*100)/lines_ << "%)"
+                               << "  (" << index_t(cur_line*100) /
+		                     std::max(lines_,1u) << "%)"
                                << std::endl;
         }
 

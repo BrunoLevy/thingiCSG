@@ -309,10 +309,37 @@ namespace CSG {
         const std::string& filename, const std::string& layer,
         index_t timestamp, vec2 origin, vec2 scale
     ) {
-	return std::make_shared<Mesh>();
+	std::shared_ptr<Mesh> result;
+        std::filesystem::path full_filename(filename);
+        if(!find_file(full_filename)) {
+            Logger::err("CSG") << filename << ": file not found"
+                               << std::endl;
+            return result;
+        }
+
+        if(
+	    full_filename.extension() == ".dxf" ||
+	    full_filename.extension() == ".DXF"
+	) {
+            result = import_with_openSCAD(full_filename, layer, timestamp);
+        } else {
+	    result = std::make_shared<Mesh>();
+            mesh_load(*result,full_filename);
+        }
+
+        // Apply origin and scale
+	if(result->dimension() == 2) {
+	    for(index_t v=0; v<result->nb_vertices(); ++v) {
+		vec2 p = result->point_2d(v);
+		result->point_2d(v) = (p - origin) * scale;
+	    }
+	}
+
+        result->update();
+        return result;
     }
 
-    std::shared_ptr<Mesh> Builder::surface(
+    std::shared_ptr<Mesh> Builder::surface_with_OpenSCAD(
         const std::string& filename, bool center, bool invert
     ) {
 	return std::make_shared<Mesh>();
@@ -422,7 +449,15 @@ namespace CSG {
         fn_ = DEFAULT_FN;
     }
 
-    bool Builder::find_file(std::string& filename) {
+    bool Builder::find_file(std::filesystem::path& filename) {
+	for(const std::filesystem::path& path: file_path_) {
+	    std::filesystem::path current_path = path / filename;
+	    std::cerr << " Trying " << current_path << std::endl;
+	    if(std::filesystem::is_regular_file(current_path)) {
+		filename = current_path;
+		return true;
+	    }
+	}
 	return false;
     }
 
