@@ -279,7 +279,6 @@ namespace CSG {
     double fn_;
     double fs_;
     double fa_;
-    double STL_epsilon_;
     bool verbose_;
     std::vector<std::filesystem::path> file_path_;
     };
