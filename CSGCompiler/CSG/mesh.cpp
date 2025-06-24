@@ -55,6 +55,34 @@ namespace {
 	return true;
     }
 
+
+    bool lexico_compare(const vec2& p, const vec2& q) {
+	if(p.x < q.x) {
+	    return true;
+	}
+	if(p.x > q.x) {
+	    return false;
+	}
+	return (p.y < q.y);
+    }
+
+
+    bool lexico_compare(const vec3& p, const vec3& q) {
+	if(p.x < q.x) {
+	    return true;
+	}
+	if(p.x > q.x) {
+	    return false;
+	}
+	if(p.y < q.y) {
+	    return true;
+	}
+	if(p.y > q.y) {
+	    return false;
+	}
+	return (p.z < q.z);
+    }
+
 }
 
 namespace CSG {
@@ -248,6 +276,94 @@ namespace CSG {
     void Mesh::remove_all_triangles() {
 	triangles_.clear();
 	triangles_operands_.clear();
+    }
+
+    void Mesh::merge_duplicated_points() {
+	vector<index_t> sorted(nb_vertices());
+	for(index_t i=0; i<nb_vertices(); ++i) {
+	    sorted[i] = i;
+	}
+	std::sort(
+	    sorted.begin(), sorted.end(),
+	    [this](index_t i, index_t j)->bool{
+		return lexico_compare(point(i), point(j));
+	    }
+	);
+
+	// compute remapping from sorted indices
+	vector<index_t> old2new(nb_vertices());
+	auto b = sorted.begin();
+	while(b != sorted.end()) {
+	    auto e = b+1;
+	    while(e != sorted.end() && point(*e) == point(*b)) {
+		++e;
+	    }
+	    for(auto i=b; i!=e; ++i) {
+		old2new[*i] = *b;
+	    }
+	    b = e;
+	}
+
+	// remap edges and triangles indices
+	for(index_t& i: edges_) {
+	    i = old2new[i];
+	}
+
+	for(index_t& i: triangles_) {
+	    i = old2new[i];
+	}
+
+	// remove duplicated vertices
+	vector<index_t>& to_remove = old2new;
+	for(index_t i=0; i<to_remove.size(); ++i) {
+	    to_remove[i] = (to_remove[i] == i) ? 0 : 1;
+	}
+
+	remove_vertices(to_remove);
+    }
+
+
+    void Mesh::compute_borders() {
+
+	typedef std::pair<index_t, index_t> Edge;
+	auto normalized = [](const Edge& E)->Edge {
+	    return std::make_pair(
+		std::min(E.first, E.second),
+		std::max(E.first, E.second)
+	    );
+	};
+
+	remove_all_edges();
+
+	vector<std::pair<index_t, index_t>> edges;
+	edges.reserve(nb_triangles()*3);
+	for(index_t t=0; t<nb_triangles(); ++t) {
+	    for(index_t le=0; le<3; ++le) {
+		index_t v1 = triangle_vertex(t, le);
+		index_t v2 = triangle_vertex(t, (le+1)%3);
+		edges.emplace_back(v1,v2);
+	    }
+	}
+
+	std::sort(
+	    edges.begin(), edges.end(),
+	    [normalized](const Edge& E1, const Edge& E2)->bool {
+		return(normalized(E1) < normalized(E2));
+	    }
+	);
+
+	auto b = edges.begin();
+	while(b != edges.end()) {
+	    auto e = b+1;
+	    while(e != edges.end() && normalized(*e) == normalized(*b)) {
+		++e;
+	    }
+	    if(e-b != 2) {
+		create_edge(b->first, b->second);
+	    }
+	    b = e;
+	}
+
     }
 
 }

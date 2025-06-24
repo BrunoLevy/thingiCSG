@@ -216,11 +216,25 @@ namespace CSG {
      */
     void remove_isolated_vertices();
 
-
     void remove_all_edges();
 
     void remove_all_triangles();
 
+
+    /**
+     * \brief Merges points that have exactly the same coordinates
+     */
+    void merge_duplicated_points();
+
+
+    /**
+     * \brief Replaces all edges with border edges
+     */
+    void compute_borders();
+
+    /**
+     * \brief Place holder, does nothing
+     */
     void update();
 
     /***************************/

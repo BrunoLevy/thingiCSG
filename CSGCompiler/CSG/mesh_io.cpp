@@ -131,8 +131,8 @@ namespace {
 	    M.set_dimension(2);
 	}
 
-	// TODO: merge vertices
-	// TODO: compute borders
+	M.merge_duplicated_points();
+	M.compute_borders();
     }
 
 
@@ -162,7 +162,7 @@ namespace {
 		<< std::endl;
 	}
 	for(index_t e=0; e<M.nb_edges(); ++e) {
-	    out << "s "
+	    out << "l "
 		<< M.edge_vertex(e,0)+1 << " "
 		<< M.edge_vertex(e,1)+1
 		<< std::endl;
