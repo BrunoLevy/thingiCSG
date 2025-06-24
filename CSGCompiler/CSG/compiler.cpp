@@ -129,7 +129,7 @@ namespace CSG {
         // Add the directory that contains the file to the builder's file path,
         // so that import() instructions are able to find files in the same
         // directory.
-        builder_->add_file_path(input_filename.parent_path());
+        builder_->push_file_path(input_filename.parent_path());
 
         if(
             input_filename.extension() == ".scad" ||
@@ -158,7 +158,7 @@ namespace CSG {
 
             result = compile_file(tmpscad);
 	    std::filesystem::remove(tmpscad);
-	    builder_->reset_file_path();
+	    builder_->pop_file_path();
             return result;
         }
 
@@ -202,7 +202,7 @@ namespace CSG {
             result->set_dimension(3);
         }
 
-        builder_->reset_file_path();
+        builder_->pop_file_path();
         return result;
     }
 

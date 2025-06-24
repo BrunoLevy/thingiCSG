@@ -4,6 +4,7 @@ project(CSGCompiler VERSION 1.0 LANGUAGES CXX)
 include_directories(. glm)
 
 set(SOURCES
+    geogram.psm.Delaunay/Delaunay_psm.cpp
     CSG/common.cpp CSG/mesh.cpp CSG/mesh_io.cpp CSG/builder.cpp CSG/compiler.cpp
     CSG/line_stream.cpp
     main.cpp

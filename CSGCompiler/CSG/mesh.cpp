@@ -80,4 +80,17 @@ namespace CSG {
 	}
     }
 
+    void Mesh::create_polygon(vector<index_t> vertices) {
+	// TODO: better triangulation
+	csg_assert(vertices.size() >= 3);
+	index_t first_t = create_triangles(vertices.size() - 2);
+	for(index_t i=1; i+1<vertices.size(); ++i) {
+	    set_triangle(first_t+i-1, vertices[0], vertices[i], vertices[i+1]);
+	}
+    }
+
+    void Mesh::remove_isolated_vertices() {
+	// TODO
+    }
+
 }

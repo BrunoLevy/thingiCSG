@@ -251,6 +251,25 @@ namespace CSG {
         file_path_.push_back(std::filesystem::current_path());
     }
 
+    /**
+     * \brief Adds a path to the file path
+     * \details The file path is where import() searches files. The default
+     *  file path contains the current directory "."
+     * \param[in] path the file path to be added, without trailing '/'
+     */
+    void push_file_path(const std::filesystem::path& path) {
+	file_path_.push_back(path);
+    }
+
+    /**
+     * \brief Removes the latest pushed file path
+     */
+    void pop_file_path() {
+	csg_assert(file_path_.size() != 0);
+	file_path_.pop_back();
+    }
+
+
     /**** misc ****/
 
     protected:

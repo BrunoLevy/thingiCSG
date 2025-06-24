@@ -84,6 +84,14 @@ namespace CSG {
 	return result;
     }
 
+    double* point_data() {
+	return points_.data();
+    }
+
+    const double* point_data() const {
+	return points_.data();
+    }
+
     /***************************/
 
     index_t nb_triangles() const {
@@ -128,6 +136,8 @@ namespace CSG {
 	triangles_[3*t+1] = v2;
 	triangles_[3*t+2] = v3;
     }
+
+    void create_polygon(vector<index_t> vertices);
 
     /***************************/
 
@@ -176,6 +186,9 @@ namespace CSG {
 
     void append_mesh(Mesh& M, index_t operand);
     void get_bbox(vec3& min, vec3& max) const;
+
+    void remove_isolated_vertices();
+
     void update();
 
     /***************************/

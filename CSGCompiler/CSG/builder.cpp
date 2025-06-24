@@ -1,5 +1,6 @@
 #include <CSG/builder.h>
 #include <CSG/mesh_io.h>
+#include <geogram.psm.Delaunay/Delaunay_psm.h>
 
 namespace CSG {
 
@@ -400,7 +401,68 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::hull(const Scope& scope) {
-	return std::make_shared<Mesh>();
+	std::shared_ptr<Mesh> result = append(scope);
+
+	// Particular case: no vertex in scope (yes, this happens !)
+	if(result->nb_vertices() == 0) {
+	    return result;
+	}
+
+	// Use Delaunay_PSM to compute Delaunay triangulation, then
+	// extract convex hull as triangulation's boundary.
+
+        if(result->dimension() == 3) {
+	    GEO::CmdLine::set_arg("algo:delaunay", "PDEL");
+        } else {
+	    GEO::CmdLine::set_arg("algo:delaunay", "BDEL2d");
+        }
+
+	GEO::Delaunay_var delaunay = GEO::Delaunay::create(
+	    GEO::coord_index_t(result->dimension())
+	);
+
+	delaunay->set_keeps_infinite(true);
+        delaunay->set_vertices(result->nb_vertices(), result->point_data());
+
+
+        if(result->dimension() == 3) {
+            // This iterates on the infinite cells
+            for(
+                index_t t = delaunay->nb_finite_cells();
+		t < delaunay->nb_cells(); ++t
+            ) {
+		index_t v0 = delaunay->cell_vertex(t,0);
+		index_t v1 = delaunay->cell_vertex(t,1);
+		index_t v2 = delaunay->cell_vertex(t,2);
+		index_t v3 = delaunay->cell_vertex(t,3);
+		if(v0 == NO_INDEX) {
+		    result->create_triangle(v1,v2,v3);
+		} else if(v1 == NO_INDEX) {
+		    result->create_triangle(v3,v2,v0);
+		} else if(v2 == NO_INDEX) {
+		    result->create_triangle(v1,v3,v0);
+		} else if(v3 == NO_INDEX) {
+		    result->create_triangle(v2,v1,v0);
+		}
+	    }
+        } else {
+            for(index_t t = delaunay->nb_finite_cells();
+                t < delaunay->nb_cells(); ++t
+               ) {
+                index_t v1= NO_INDEX, v2=NO_INDEX;
+                for(index_t lv=0; lv<3; ++lv) {
+                    if(delaunay->cell_vertex(t,lv) == NO_INDEX) {
+                        v1 = delaunay->cell_vertex(t,(lv+1)%3);
+                        v2 = delaunay->cell_vertex(t,(lv+2)%3);
+                    }
+                }
+                geo_assert(v1 != NO_INDEX && v2 != NO_INDEX);
+                result->create_edge(v1,v2);
+            }
+        }
+	result->remove_isolated_vertices();
+        result->update();
+        return result;
     }
 
     std::shared_ptr<Mesh> Builder::linear_extrude(

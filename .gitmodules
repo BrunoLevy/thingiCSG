@@ -7,3 +7,6 @@
 [submodule "CSGCompiler/glm"]
 	path = CSGCompiler/glm
 	url = https://github.com/g-truc/glm
+[submodule "CSGCompiler/geogram.psm.Delaunay"]
+	path = CSGCompiler/geogram.psm.Delaunay
+	url = https://github.com/BrunoLevy/geogram.psm.Delaunay.git
