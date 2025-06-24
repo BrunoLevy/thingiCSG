@@ -310,46 +310,38 @@ namespace CSG {
             syntax_error("polyhedron: wrong type (expected array)");
         }
 
-	csg_assert_not_reached;
-
-	/*
-        M->vertices.set_dimension(3);
-        M->vertices.create_vertices(points.array_val.size());
+        M->create_vertices(points.array_val.size());
         for(index_t v=0; v<points.array_val.size(); ++v) {
             if(points.array_val[v].size() != 3) {
                 syntax_error("polyhedron: wrong vertex size (expected 3d)");
             }
-	    M->vertices.point(v) = {
+	    M->point_3d(v) = {
 		points.array_val[v][0],
 		points.array_val[v][1],
 		points.array_val[v][2]
 	    };
         }
 
+	vector<index_t> facet;
+
         for(index_t f=0; f<faces.array_val.size(); ++f) {
-            index_t new_f = M->facets.create_polygon(
-                faces.array_val[f].size()
-            );
             for(index_t lv=0; lv < faces.array_val[f].size(); ++lv) {
                 double v = faces.array_val[f][lv];
-                if(v < 0.0 || v >= double(M->vertices.nb())) {
+                if(v < 0.0 || v >= double(M->nb_vertices())) {
                     syntax_error(
                         String::format(
                             "polyhedron: invalid vertex index %d (max is %d)",
-                            int(v), int(M->vertices.nb())-1
+                            int(v), int(M->nb_vertices())-1
                         ).c_str()
                     );
                 }
-                M->facets.set_vertex(new_f, lv, index_t(v));
+		facet.push_back(index_t(v));
             }
+	    M->create_polygon(facet);
+	    facet.resize(0);
         }
 
-        tessellate_facets(*M,3);
-
-        M->facets.connect();
-        M->update_bbox();
-	*/
-
+        M->update();
         return M;
     }
 
