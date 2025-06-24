@@ -187,7 +187,39 @@ namespace CSG {
     void append_mesh(Mesh& M, index_t operand);
     void get_bbox(vec3& min, vec3& max) const;
 
+    /**
+     * \brief Removes some vertices, re-compresses storage
+     * \param[in] to_remove a vector of size nb_vertices(), i-th entry
+     *  is set to non-zero if vertex i should be deleted. The vector
+     *  is modified by the function.
+     */
+    void remove_vertices(vector<index_t>& to_remove);
+
+    /**
+     * \brief Removes some edges, re-compresses storage
+     * \param[in] to_remove a vector of size nb_edges(), i-th entry
+     *  is set to non-zero if edge i should be deleted. The vector
+     *  is modified by the function.
+     */
+    void remove_edges(vector<index_t>& to_remove);
+
+    /**
+     * \brief Removes some triangles, re-compresses storage
+     * \param[in] to_remove a vector of size nb_triangles(), i-th entry
+     *  is set to non-zero if edge i should be deleted. The vector
+     *  is modified by the function.
+     */
+    void remove_triangles(vector<index_t>& to_remove);
+
+    /**
+     * \brief Removes vertices referenced by no edge and no triangle
+     */
     void remove_isolated_vertices();
+
+
+    void remove_all_edges();
+
+    void remove_all_triangles();
 
     void update();
 

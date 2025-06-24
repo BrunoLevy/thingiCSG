@@ -136,6 +136,38 @@ namespace {
     }
 
 
+
+    void mesh_save_OBJ(
+	const Mesh& M, const std::filesystem::path& filename
+    ) {
+	std::ofstream out(filename);
+	if(!out) {
+	    throw(
+		std::logic_error(
+		    std::string("Could not open ") + filename.c_str()
+		)
+	    );
+	}
+	out << std::setprecision(19);
+	Logger::out("IO") << "Saving " << filename << std::endl;
+
+	for(index_t v=0; v<M.nb_vertices(); ++v) {
+	    out << "v " << M.point(v) << std::endl;
+	}
+	for(index_t t=0; t<M.nb_triangles(); ++t) {
+	    out << "f "
+		<< M.triangle_vertex(t,0)+1 << " "
+		<< M.triangle_vertex(t,1)+1 << " "
+		<< M.triangle_vertex(t,2)+1
+		<< std::endl;
+	}
+	for(index_t e=0; e<M.nb_edges(); ++e) {
+	    out << "s "
+		<< M.edge_vertex(e,0)+1 << " "
+		<< M.edge_vertex(e,1)+1
+		<< std::endl;
+	}
+    }
 }
 
 namespace CSG {
@@ -150,6 +182,10 @@ namespace CSG {
     void mesh_save(const Mesh& M, const std::filesystem::path& filename) {
 	if(filename.extension() == ".stl" || filename.extension() == ".STL") {
 	    mesh_save_STL_ascii(M, filename);
+	    return;
+	}
+	if(filename.extension() == ".obj" || filename.extension() == ".OBJ") {
+	    mesh_save_OBJ(M, filename);
 	    return;
 	}
     }

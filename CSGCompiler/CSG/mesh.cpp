@@ -1,5 +1,61 @@
 #include <CSG/mesh.h>
 #include <limits>
+#include <cstring>
+
+namespace {
+    using namespace CSG;
+
+
+    /**
+     * \brief Compresses an array, by
+     *  applying an index mapping that fills-in the gaps.
+     * \details This is equivalent to:
+     * \code
+     * for(i=0; i<size(); i++) {
+     *    if(old2new[i] != index_t(-1)) {
+     *       data2[old2new[i]] = data[i];
+     *    }
+     * }
+     * data = data2 ;
+     * \endcode
+     * \param[in] old2new the index mapping to be applied.
+     * \pre old2new[i] <= i || old2new[i] == NO_INDEX
+     * \note This function uses memcpy()
+     */
+    void compress(
+	void* data, const vector<index_t>& old2new, size_t item_size
+    ) {
+	char* basemem = reinterpret_cast<char*>(data);
+        for(index_t i=0; i<old2new.size(); ++i) {
+            index_t j = old2new[i];
+            if(j == NO_INDEX || j == i) {
+                continue;
+            }
+            csg_debug_assert(j <= i);
+	    memcpy(
+		basemem + size_t(j) * item_size,
+		basemem + size_t(i) * item_size,
+		item_size
+	    );
+        }
+    }
+
+    /**
+     * \brief Tests whether a vector of indices has all its elements set to 0
+     * \param[in] V the vector to be tested
+     * \retval true if \p V has all its elements set to 0
+     * \retval false otherwise
+     */
+    bool all_zero(const vector<index_t>& V) {
+	for(index_t i: V) {
+	    if(i != 0) {
+		return false;
+	    }
+	}
+	return true;
+    }
+
+}
 
 namespace CSG {
 
@@ -89,8 +145,109 @@ namespace CSG {
 	}
     }
 
+    void Mesh::remove_vertices(vector<index_t>& to_remove) {
+	csg_debug_assert(to_remove.size() == nb_vertices());
+	if(all_zero(to_remove)) {
+	    return;
+	}
+
+	// compute re-indexing in same space as to_remove
+	vector<index_t>& old2new = to_remove;
+	index_t nb=0;
+	for(index_t& i : old2new) {
+	    if(i == 0) {
+		i = nb;
+		++nb;
+	    } else {
+		i = NO_INDEX;
+	    }
+	}
+
+	compress(points_.data(), old2new, sizeof(double) * dimension());
+	points_.resize(nb * dimension());
+
+	for(index_t& i: edges_) {
+	    i = old2new[i];
+	}
+
+	for(index_t& i: triangles_) {
+	    i = old2new[i];
+	}
+    }
+
+
+    void Mesh::remove_edges(vector<index_t>& to_remove) {
+	csg_debug_assert(to_remove.size() == nb_edges());
+	if(all_zero(to_remove)) {
+	    return;
+	}
+
+	// compute re-indexing in same space as to_remove
+	vector<index_t>& old2new = to_remove;
+	index_t nb=0;
+	for(index_t& i : old2new) {
+	    if(i == 0) {
+		i = nb;
+		++nb;
+	    } else {
+		i = NO_INDEX;
+	    }
+	}
+
+	compress(edges_.data(), old2new, sizeof(index_t)*2);
+	compress(edges_operands_.data(), old2new, sizeof(index_t));
+
+	edges_.resize(2*nb);
+	edges_operands_.resize(nb);
+    }
+
+    void Mesh::remove_triangles(vector<index_t>& to_remove) {
+	csg_debug_assert(to_remove.size() == nb_triangles());
+	if(all_zero(to_remove)) {
+	    return;
+	}
+
+	// compute re-indexing in same space as to_remove
+	vector<index_t>& old2new = to_remove;
+	index_t nb=0;
+	for(index_t& i : old2new) {
+	    if(i == 0) {
+		i = nb;
+		++nb;
+	    } else {
+		i = NO_INDEX;
+	    }
+	}
+
+	compress(triangles_.data(), old2new, sizeof(index_t)*3);
+	compress(triangles_operands_.data(), old2new, sizeof(index_t));
+
+	triangles_.resize(3*nb);
+	triangles_operands_.resize(nb);
+    }
+
     void Mesh::remove_isolated_vertices() {
-	// TODO
+	vector<index_t> to_remove(nb_vertices(), 1);
+	for(index_t e=0; e<nb_edges(); ++e) {
+	    to_remove[edge_vertex(e,0)] = 0;
+	    to_remove[edge_vertex(e,1)] = 0;
+	}
+	for(index_t t=0; t<nb_triangles(); ++t) {
+	    to_remove[triangle_vertex(t,0)] = 0;
+	    to_remove[triangle_vertex(t,1)] = 0;
+	    to_remove[triangle_vertex(t,2)] = 0;
+	}
+	remove_vertices(to_remove);
+    }
+
+    void Mesh::remove_all_edges() {
+	edges_.clear();
+	edges_operands_.clear();
+    }
+
+    void Mesh::remove_all_triangles() {
+	triangles_.clear();
+	triangles_operands_.clear();
     }
 
 }

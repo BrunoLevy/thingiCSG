@@ -402,6 +402,8 @@ namespace CSG {
 
     std::shared_ptr<Mesh> Builder::hull(const Scope& scope) {
 	std::shared_ptr<Mesh> result = append(scope);
+	result->remove_all_edges();
+	result->remove_all_triangles();
 
 	// Particular case: no vertex in scope (yes, this happens !)
 	if(result->nb_vertices() == 0) {

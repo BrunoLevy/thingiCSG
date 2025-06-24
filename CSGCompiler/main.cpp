@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
 	compiler.set_verbose(true);
 	std::shared_ptr<CSG::Mesh> result = compiler.compile_file(filenames[0]);
 	if(result != nullptr) {
-	    std::string outputfile = "out.stl";
+	    std::string outputfile = "out.obj";
 	    if(filenames.size() == 2) {
 		outputfile = filenames[1];
 	    }
