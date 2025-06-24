@@ -175,9 +175,7 @@ namespace CSG {
     /***************************/
 
     void append_mesh(Mesh& M, index_t operand);
-
-    /***************************/
-
+    void get_bbox(vec3& min, vec3& max) const;
     void update();
 
     /***************************/

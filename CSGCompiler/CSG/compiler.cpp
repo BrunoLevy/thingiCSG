@@ -491,13 +491,9 @@ namespace CSG {
         double default_scaling = 1.0;
         for(index_t coord=0; coord<3; ++coord) {
             if(newsize[coord] != 0) {
-		// TODO
-		csg_assert_not_reached;
-		/*
-                scaling[coord] = newsize[coord] / (
-                    result->bbox().xyz_max[coord] - result->bbox().xyz_min[coord]
-                );
-		*/
+		vec3 minp, maxp;
+		result->get_bbox(minp, maxp);
+		scaling = newsize / (maxp - minp);
                 default_scaling = scaling[coord];
             }
         }
@@ -508,16 +504,13 @@ namespace CSG {
                 }
             }
         }
-	csg_assert_not_reached;
-	/*
-	// TODO
-        for(index_t v: result->vertices) {
-            for(index_t c=0; c<result->vertices.dimension(); ++c) {
-                result->vertices.point_ptr(v)[c] *= scaling[c];
-            }
-        }
-        result->update_bbox();
-	*/
+	for(index_t v=0; v<result->nb_vertices(); ++v) {
+	    if(result->dimension() == 3) {
+		result->point_3d(v) *= scaling;
+	    } else {
+		result->point_2d(v) *= vec2(scaling.x, scaling.y);
+	    }
+	}
         return result;
     }
 

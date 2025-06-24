@@ -60,6 +60,9 @@ namespace CSG {
 
     using glm::normalize;
     using glm::cross;
+    using glm::dot;
+    using glm::min;
+    using glm::max;
 
     inline std::ostream& operator<<(std::ostream& out, vec2 v) {
 	return (out << v.x << ' ' << v.y);

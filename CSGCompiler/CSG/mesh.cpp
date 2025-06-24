@@ -1,4 +1,5 @@
 #include <CSG/mesh.h>
+#include <limits>
 
 namespace CSG {
 
@@ -64,4 +65,19 @@ namespace CSG {
 	edges_operands_.clear();
 	triangles_operands_.clear();
     }
+
+    void Mesh::get_bbox(vec3& minp, vec3& maxp) const {
+	minp = vec3(
+	    std::numeric_limits<double>::max(),
+	    std::numeric_limits<double>::max(),
+	    std::numeric_limits<double>::max()
+	);
+	maxp = -minp;
+	for(index_t v=0; v<nb_vertices(); ++v) {
+	    vec3 p = point(v);
+	    minp = min(minp,p);
+	    maxp = max(maxp,p);
+	}
+    }
+
 }
