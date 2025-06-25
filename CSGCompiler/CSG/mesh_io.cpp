@@ -1,7 +1,6 @@
 #include <CSG/mesh_io.h>
 #include <CSG/mesh.h>
 #include <CSG/line_stream.h>
-#include <CSG/b_stream.h>
 #include <fstream>
 
 namespace {
@@ -121,68 +120,64 @@ namespace {
 	}
 
 
-	bool z_all_zero = true;
-	for(index_t v = 0; v<M.nb_vertices(); ++v) {
-	    if(M.point_3d(v).z != 0.0) {
-		z_all_zero = false;
-		break;
-	    }
-	}
-	if(z_all_zero) {
-	    M.set_dimension(2);
-	}
-
-	M.merge_duplicated_points();
-	M.compute_borders();
-
 	return true;
     }
 
-    bool mesh_load_STL_binary(
-	Mesh& M, const std::filesystem::path& filename
-    ) {
+    bool mesh_load_STL_binary(Mesh& M, const std::filesystem::path& filename) {
 	M.clear();
 	M.set_dimension(3);
 
-	BinaryInputStream in(filename, BinaryStream::CSG_LITTLE_ENDIAN);
+	FILE* F = fopen(filename.c_str(), "rb");
+	if(F == nullptr) {
+	    Logger::err("IO") << "Could not open " << filename << std::endl;
+	    return false;
+	}
+
 	char header[80];
-	in.read_opaque_data(header, 80);
-	if(!in.OK()) {
-	    Logger::err("IO") <<  "failed to read header" << std::endl;
+	if(fread(header, 1, 80, F) != 80) {
+	    Logger::err("IO") << "Error while reading header " << std::endl;
+	    fclose(F);
 	    return false;
 	}
 
 	uint32_t nb_triangles;
-	in >> nb_triangles;
-	if(!in.OK()) {
-	    Logger::err("IO") << "failed to read number of triangles"
+	if(fread(&nb_triangles, 1, sizeof(uint32_t), F) != sizeof(uint32_t)) {
+	    Logger::err("IO") << "Error while reading nb_triangles "
 			      << std::endl;
+	    fclose(F);
 	    return false;
 	}
+
+	std::cerr << "nb triangles =" << nb_triangles << std::endl;
 
 	M.create_vertices(nb_triangles*3);
 	M.create_triangles(nb_triangles);
 
 	for(index_t t = 0; t < nb_triangles; t++) {
-	    float N[3];
-            float XYZ[9];
-	    in >> N[0] >> N[1] >> N[2];
-	    for(index_t i = 0; i < 9; i++) {
-		in >> XYZ[i];
+	    struct {
+		float N[3];
+		float XYZ[9];
+	    } T;
+	    if(fread(&T, 1, sizeof(T), F) != sizeof(T)) {
+		Logger::err("IO") << "Error while reading triangle"
+				  << std::endl;
+		fclose(F);
+		return false;
 	    }
-	    if(!in.OK()) {
-		Logger::err("IO") << "failed to read triangle" << std::endl;
+	    uint16_t attrib;
+	    if(fread(&attrib, 1, sizeof(uint16_t), F) != sizeof(uint16_t)) {
+		Logger::err("IO") << "Error while reading triangle"
+				  << std::endl;
+		fclose(F);
 		return false;
 	    }
 
-	    uint16_t attrib;
-	    in >> attrib;
-
-	    M.point_3d(3*t)   = vec3(XYZ[0], XYZ[1], XYZ[2]);
-	    M.point_3d(3*t+1) = vec3(XYZ[3], XYZ[4], XYZ[5]);
-	    M.point_3d(3*t+2) = vec3(XYZ[6], XYZ[7], XYZ[8]);
+	    M.point_3d(3*t)   = vec3(T.XYZ[0], T.XYZ[1], T.XYZ[2]);
+	    M.point_3d(3*t+1) = vec3(T.XYZ[3], T.XYZ[4], T.XYZ[5]);
+	    M.point_3d(3*t+2) = vec3(T.XYZ[6], T.XYZ[7], T.XYZ[8]);
 	    M.set_triangle(t, 3*t, 3*t+1, 3*t+2);
 	}
+
 	return true;
     }
 
@@ -191,6 +186,7 @@ namespace {
     ) {
 	FILE* F = fopen(filename.c_str(), "rb");
 	if(F == nullptr) {
+	    Logger::err("IO") << "Could not open " << filename << std::endl;
 	    return false;
 	}
 
@@ -217,6 +213,21 @@ namespace {
 	} else {
 	    result = mesh_load_STL_ascii(M, filename);
 	}
+
+	bool z_all_zero = true;
+	for(index_t v = 0; v<M.nb_vertices(); ++v) {
+	    if(M.point_3d(v).z != 0.0) {
+		z_all_zero = false;
+		break;
+	    }
+	}
+	if(z_all_zero) {
+	    M.set_dimension(2);
+	}
+
+	M.merge_duplicated_points();
+	M.compute_borders();
+
 	return result;
     }
 
