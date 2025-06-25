@@ -2,6 +2,42 @@
 #include <CSG/mesh_io.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
 
+namespace {
+    using namespace CSG;
+
+    /**
+     * \brief Triangulates a closed contour using a zigzag pattern
+     * \param[in,out] M a reference to the mesh
+     * \param[in] low , high first and last vertex in the contour
+     * \param[in] flip if set, flip triangle orientation
+     */
+    void triangulate_contour_zigzag(
+	Mesh& M, index_t low, index_t high, bool flip
+    ) {
+	for(;;) {
+	    if(low+1==high) {
+		break;
+	    }
+	    if(flip) {
+		M.create_triangle(low+1, low, high);
+	    } else {
+		M.create_triangle(low, low+1, high);
+	    }
+	    ++low;
+	    if(high-1==low) {
+		break;
+	    }
+	    if(flip) {
+		M.create_triangle(low, high, high-1);
+	    } else {
+		M.create_triangle(low, high-1, high);
+	    }
+	    --high;
+	}
+    }
+}
+
+
 namespace CSG {
 
     Builder::Builder() {
@@ -80,9 +116,7 @@ namespace CSG {
             M->create_vertex(vec2(x,y));
         }
 
-        for(index_t u=1; u+1<nu; ++u) {
-            M->create_triangle(0,u,u+1);
-        }
+	triangulate_contour_zigzag(*M, 0, nu-1, false);
 
         for(index_t u=0; u<nu; ++u) {
 	    M->create_edge(u, (u+1)%nu);
@@ -172,7 +206,6 @@ namespace CSG {
 
         for(index_t v=0; v<nv; ++v) {
             double phi = (double(v) + 0.5)*M_PI/double(nv) - M_PI/2.0;
-
             double cphi = cos(phi);
             double sphi = sin(phi);
             for(index_t u=0; u<nu; ++u) {
@@ -207,24 +240,8 @@ namespace CSG {
 	    index_t offset = nu*(nv-1);
 	    index_t low=0;
 	    index_t high=nu-1;
-	    for(;;) {
-		if(low+1==high) {
-		    break;
-		}
-		M->create_triangle(low+1, low, high);
-		M->create_triangle(
-		    offset+low, offset+low+1, offset+high
-		);
-		++low;
-		if(high-1==low) {
-		    break;
-		}
-		M->create_triangle(low, high, high-1);
-		M->create_triangle(
-		    offset+low, offset+high-1, offset+high
-		);
-		--high;
-	    }
+	    triangulate_contour_zigzag(*M, low, high, true);
+	    triangulate_contour_zigzag(*M, low+offset, high+offset, false);
 	}
 
         update_caches(M);
@@ -281,14 +298,12 @@ namespace CSG {
         }
 
         // Capping
-        for(index_t u=1; u+1<nu; ++u) {
-            M->create_triangle(0,u+1,u);
-            if(r2 != 0.0) {
-                M->create_triangle(nu,nu+u,nu+u+1);
-            }
-        }
+	triangulate_contour_zigzag(*M,0,nu-1,true);
+	if(r2 != 0.0) {
+	    triangulate_contour_zigzag(*M,nu,2*nu-1,false);
+	}
 
-        // Wall
+        // Walls
         for(index_t u=0; u<nu; ++u) {
             if(r2 != 0.0) {
                 index_t v00 = u;
@@ -395,14 +410,14 @@ namespace CSG {
             index_t n1 = index_t(scope.size()/2);
             for(index_t i=0; i<scope.size(); ++i) {
                 if(i < n1) {
-                    scope1.push_back(scope[i]);
+                    scope1.emplace_back(scope[i]);
                 } else {
-                    scope2.push_back(scope[i]);
+                    scope2.emplace_back(scope[i]);
                 }
             }
             Scope scope3;
-            scope3.push_back(union_instr(scope1));
-            scope3.push_back(union_instr(scope2));
+            scope3.emplace_back(union_instr(scope1));
+            scope3.emplace_back(union_instr(scope2));
             return union_instr(scope3);
 	}
 
@@ -425,15 +440,15 @@ namespace CSG {
             index_t n1 = index_t(scope.size()/2);
             for(index_t i=0; i<scope.size(); ++i) {
                 if(i < n1) {
-                    scope1.push_back(scope[i]);
+                    scope1.emplace_back(scope[i]);
                 } else {
-                    scope2.push_back(scope[i]);
+                    scope2.emplace_back(scope[i]);
                 }
             }
 
             Scope scope3;
-            scope3.push_back(union_instr(scope1));
-            scope3.push_back(union_instr(scope2));
+            scope3.emplace_back(union_instr(scope1));
+            scope3.emplace_back(union_instr(scope2));
             return intersection(scope3);
         }
 
@@ -453,11 +468,11 @@ namespace CSG {
         if(scope.size() > max_arity_) {
             Scope scope2;
             for(index_t i=1; i<scope.size(); ++i) {
-                scope2.push_back(scope[i]);
+                scope2.emplace_back(scope[i]);
             }
             Scope scope3;
-            scope3.push_back(scope[0]);
-            scope3.push_back(union_instr(scope2));
+            scope3.emplace_back(scope[0]);
+            scope3.emplace_back(union_instr(scope2));
             return difference(scope3);
         }
 
@@ -505,7 +520,6 @@ namespace CSG {
 
 	delaunay->set_keeps_infinite(true);
         delaunay->set_vertices(result->nb_vertices(), result->point_data());
-
 
         if(result->dimension() == 3) {
             // This iterates on the infinite cells
