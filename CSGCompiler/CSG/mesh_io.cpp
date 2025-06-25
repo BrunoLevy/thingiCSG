@@ -17,7 +17,6 @@ namespace {
 	    return false;
 	}
 	out << std::setprecision(19);
-	Logger::out("IO") << "Saving " << filename << std::endl;
 	out << "solid geogram" << std::endl;
 	for(index_t t = 0; t < M.nb_triangles(); ++t) {
 	    // Seriously, this ASCII STL format is soooo verbose !!!
@@ -123,6 +122,82 @@ namespace {
 	return true;
     }
 
+    template <class T> bool fread(FILE* F, T& data, const char* what) {
+	if(fread(&data, 1, sizeof(data), F) != sizeof(data)) {
+	    Logger::err("IO") << "Error while reading " << what << std::endl;
+	    return false;
+	}
+	return true;
+    }
+
+    template <class T> bool fwrite(FILE* F, const T& data, const char* what) {
+	if(fwrite(&data, 1, sizeof(data), F) != sizeof(data)) {
+	    Logger::err("IO") << "Error while writing " << what << std::endl;
+	    return false;
+	}
+	return true;
+    }
+
+    bool mesh_save_STL_binary(
+	const Mesh& M, const std::filesystem::path& filename
+    ) {
+	FILE* F = fopen(filename.c_str(), "wb");
+	if(F == nullptr) {
+	    Logger::err("IO") << "Could not open " << filename << std::endl;
+	    return false;
+	}
+
+	char header[80];
+	::memset(header, 0, 80);
+	strcpy(header, "generated with thingiCSG compiler");
+
+	if(!fwrite(F, header, "header")) {
+	    fclose(F);
+	    return false;
+	}
+
+	uint32_t nb_triangles = M.nb_triangles();
+	if(!fwrite(F, nb_triangles, "nb_triangles")) {
+	    fclose(F);
+	    return false;
+	}
+
+	for(index_t t=0; t<M.nb_triangles(); ++t) {
+	    vec3 p[3] = {
+		M.point(M.triangle_vertex(t,0)),
+		M.point(M.triangle_vertex(t,1)),
+		M.point(M.triangle_vertex(t,2))
+	    };
+	    vec3 n = normalize(cross(p[1]-p[0],p[2]-p[0]));
+	    struct {
+		float N[3];
+		float XYZ[9];
+	    } T;
+	    T.N[0] = float(n.x);
+	    T.N[1] = float(n.y);
+	    T.N[2] = float(n.z);
+	    for(index_t lv=0; lv<3; ++lv) {
+		for(index_t c=0; c<3; ++c) {
+		    T.XYZ[lv*3+c] = float(p[lv][c]);
+		}
+	    }
+
+	    if(!fwrite(F, T, "triangle")) {
+		fclose(F);
+		return false;
+	    }
+
+	    uint16_t attrib = 0;
+	    if(!fwrite(F, attrib, "attrib")) {
+		fclose(F);
+		return false;
+	    }
+	}
+
+	fclose(F);
+	return true;
+    }
+
     bool mesh_load_STL_binary(Mesh& M, const std::filesystem::path& filename) {
 	M.clear();
 	M.set_dimension(3);
@@ -134,21 +209,16 @@ namespace {
 	}
 
 	char header[80];
-	if(fread(header, 1, 80, F) != 80) {
-	    Logger::err("IO") << "Error while reading header " << std::endl;
+	if(!fread(F, header, "header")) {
 	    fclose(F);
 	    return false;
 	}
 
 	uint32_t nb_triangles;
-	if(fread(&nb_triangles, 1, sizeof(uint32_t), F) != sizeof(uint32_t)) {
-	    Logger::err("IO") << "Error while reading nb_triangles "
-			      << std::endl;
+	if(!fread(F, nb_triangles, "nb_triangles")) {
 	    fclose(F);
 	    return false;
 	}
-
-	std::cerr << "nb triangles =" << nb_triangles << std::endl;
 
 	M.create_vertices(nb_triangles*3);
 	M.create_triangles(nb_triangles);
@@ -158,16 +228,12 @@ namespace {
 		float N[3];
 		float XYZ[9];
 	    } T;
-	    if(fread(&T, 1, sizeof(T), F) != sizeof(T)) {
-		Logger::err("IO") << "Error while reading triangle"
-				  << std::endl;
+	    if(!fread(F, T, "triangle")) {
 		fclose(F);
 		return false;
 	    }
 	    uint16_t attrib;
-	    if(fread(&attrib, 1, sizeof(uint16_t), F) != sizeof(uint16_t)) {
-		Logger::err("IO") << "Error while reading triangle"
-				  << std::endl;
+	    if(!fread(F, attrib, "attrib")) {
 		fclose(F);
 		return false;
 	    }
@@ -178,6 +244,7 @@ namespace {
 	    M.set_triangle(t, 3*t, 3*t+1, 3*t+2);
 	}
 
+	fclose(F);
 	return true;
     }
 
@@ -231,6 +298,12 @@ namespace {
 	return result;
     }
 
+    bool mesh_save_STL(
+	const Mesh& M, const std::filesystem::path& filename
+    ) {
+	return mesh_save_STL_binary(M, filename);
+    }
+
     bool mesh_save_OBJ(
 	const Mesh& M, const std::filesystem::path& filename
     ) {
@@ -243,8 +316,6 @@ namespace {
 	    );
 	}
 	out << std::setprecision(19);
-	Logger::out("IO") << "Saving " << filename << std::endl;
-
 	for(index_t v=0; v<M.nb_vertices(); ++v) {
 	    out << "v " << M.point(v) << std::endl;
 	}
@@ -277,8 +348,9 @@ namespace CSG {
     }
 
     bool mesh_save(const Mesh& M, const std::filesystem::path& filename) {
+	Logger::out("IO") << "Saving " << filename << std::endl;
 	if(filename.extension() == ".stl" || filename.extension() == ".STL") {
-	    return mesh_save_STL_ascii(M, filename);
+	    return mesh_save_STL(M, filename);
 	}
 	if(filename.extension() == ".obj" || filename.extension() == ".OBJ") {
 	    return mesh_save_OBJ(M, filename);

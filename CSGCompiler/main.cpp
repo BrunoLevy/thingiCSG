@@ -9,6 +9,8 @@ int main(int argc, char** argv) {
     GEO::CmdLine::import_arg_group("algo");
     std::vector<std::string> filenames;
 
+    GEO::CmdLine::declare_arg("verbose", false, "log CSG tree parsing");
+
     if(
 	!GEO::CmdLine::parse(
 	    argc, argv, filenames, "csgfilename <outputfile|none>"
@@ -19,7 +21,7 @@ int main(int argc, char** argv) {
 
     try {
 	CSG::Compiler compiler;
-	compiler.set_verbose(true);
+	compiler.set_verbose(GEO::CmdLine::get_arg_bool("verbose"));
 	std::shared_ptr<CSG::Mesh> result = compiler.compile_file(filenames[0]);
 	if(result != nullptr) {
 	    std::string outputfile = "out.obj";
