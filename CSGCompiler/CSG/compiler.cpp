@@ -341,7 +341,7 @@ namespace CSG {
 	    facet.resize(0);
         }
 
-        M->update();
+        builder_->update_caches(M);
         return M;
     }
 
@@ -412,7 +412,7 @@ namespace CSG {
             );
         }
 
-        M->update();
+        builder_->update_caches(M);
 
         return M;
     }

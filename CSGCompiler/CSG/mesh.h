@@ -2,8 +2,18 @@
 #define CSG_MESH
 
 #include <CSG/common.h>
+#include <memory>
 
 namespace CSG {
+
+    /**
+     * \brief Base class for user-defined cached information
+     *  associated with a Mesh.
+     */
+    class CSG_API MeshCachedInformation {
+    public:
+	virtual ~MeshCachedInformation();
+    };
 
     class CSG_API Mesh {
     public:
@@ -101,7 +111,9 @@ namespace CSG {
     index_t create_triangles(index_t nb) {
 	index_t result = nb_triangles();
 	triangles_.resize(triangles_.size()+3*nb,NO_INDEX);
-	triangles_operands_.resize(triangles_operands_.size()+nb,NO_INDEX);
+	triangles_operands_bits_.resize(
+	    triangles_operands_bits_.size()+nb,NO_INDEX
+	);
 	return result;
     }
 
@@ -137,6 +149,16 @@ namespace CSG {
 	triangles_[3*t+2] = v3;
     }
 
+    index_t triangle_operand_bits(index_t t) {
+	csg_debug_assert(t < nb_triangles());
+	return triangles_operands_bits_[t];
+    }
+
+    void set_triangle_operand_bits(index_t t, index_t operand_bits) {
+	csg_debug_assert(t < nb_triangles());
+	triangles_operands_bits_[t] = operand_bits;
+    }
+
     void create_polygon(vector<index_t> vertices);
 
     /***************************/
@@ -148,7 +170,7 @@ namespace CSG {
     index_t create_edges(index_t nb) {
 	index_t result = nb_edges();
 	edges_.resize(edges_.size()+2*nb,NO_INDEX);
-	edges_operands_.resize(edges_operands_.size()+nb,NO_INDEX);
+	edges_operands_bits_.resize(edges_operands_bits_.size()+nb,NO_INDEX);
 	return result;
     }
 
@@ -180,6 +202,16 @@ namespace CSG {
 	csg_debug_assert(e < nb_edges());
 	edges_[2*e] = v1;
 	edges_[2*e+1] = v2;
+    }
+
+    index_t edge_operand_bits(index_t e) {
+	csg_debug_assert(t < nb_edges());
+	return edges_operands_bits_[e];
+    }
+
+    void set_edge_operand_bits(index_t e, index_t operand_bits) {
+	csg_debug_assert(t < nb_edges());
+	edges_operands_bits_[e] = operand_bits;
     }
 
     /***************************/
@@ -232,10 +264,15 @@ namespace CSG {
      */
     void compute_borders();
 
-    /**
-     * \brief Place holder, does nothing
-     */
-    void update();
+    /***************************/
+
+    void set_cached_information(MeshCachedInformation* cached) {
+	cached_ = std::unique_ptr<MeshCachedInformation>(cached);
+    }
+
+    MeshCachedInformation* get_cached_information() const {
+	return cached_.get();
+    }
 
     /***************************/
 
@@ -243,9 +280,10 @@ namespace CSG {
     vector<double> points_;
     vector<index_t> edges_;
     vector<index_t> triangles_;
-    vector<index_t> edges_operands_;
-    vector<index_t> triangles_operands_;
+    vector<index_t> edges_operands_bits_;
+    vector<index_t> triangles_operands_bits_;
     index_t dimension_;
+    std::unique_ptr<MeshCachedInformation> cached_;
     };
 }
 

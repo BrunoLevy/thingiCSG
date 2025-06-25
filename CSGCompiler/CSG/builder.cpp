@@ -9,6 +9,7 @@ namespace CSG {
         reset_file_path();
         verbose_ = false;
 	warnings_ = false;
+	max_arity_ = 32;
     }
 
     std::shared_ptr<Mesh> Builder::square(vec2 size, bool center) {
@@ -50,7 +51,7 @@ namespace CSG {
 	M->create_edge(0,2);
 	M->create_edge(1,3);
 
-        M->update();
+        update_caches(M);
 
 	return M;
     }
@@ -87,7 +88,7 @@ namespace CSG {
 	    M->create_edge(u, (u+1)%nu);
 	}
 
-        M->update();
+        update_caches(M);
 
 	return M;
     }
@@ -142,7 +143,7 @@ namespace CSG {
         M->create_triangle(6,4,7);
         M->create_triangle(7,4,5);
 
-	M->update();
+	update_caches(M);
 
 	return M;
     }
@@ -226,7 +227,7 @@ namespace CSG {
 	    }
 	}
 
-        M->update();
+        update_caches(M);
 
 	return M;
     }
@@ -301,17 +302,17 @@ namespace CSG {
             }
         }
 
-	M->update();
+	update_caches(M);
 
 	return M;
     }
 
     std::shared_ptr<Mesh> Builder::import(
-        const std::string& filename, const std::string& layer,
+        const std::filesystem::path& filename, const std::string& layer,
         index_t timestamp, vec2 origin, vec2 scale
     ) {
 	std::shared_ptr<Mesh> result;
-        std::filesystem::path full_filename(filename);
+        std::filesystem::path full_filename = filename;
         if(!find_file(full_filename)) {
             Logger::err("CSG") << filename << ": file not found"
                                << std::endl;
@@ -336,7 +337,7 @@ namespace CSG {
 	    }
 	}
 
-        result->update();
+        update_caches(result);
         return result;
     }
 
@@ -376,20 +377,99 @@ namespace CSG {
 		result->point_2d(v) = (1.0 / p.w) * vec2(p.x, p.y);
 	    }
 	}
-	result->update();
+	update_caches(result);
 	return result;
     }
 
     std::shared_ptr<Mesh> Builder::union_instr(const Scope& scope) {
-	return append(scope); // replace with actual union computation
+
+	if(scope.size() == 1) {
+	    return scope[0];
+	}
+
+        // Boolean operations can handle no more than max_arity_ operands.
+        // For a union with more than max_arity_ operands, split it into two.
+	if(scope.size() > max_arity_) {
+            Scope scope1;
+            Scope scope2;
+            index_t n1 = index_t(scope.size()/2);
+            for(index_t i=0; i<scope.size(); ++i) {
+                if(i < n1) {
+                    scope1.push_back(scope[i]);
+                } else {
+                    scope2.push_back(scope[i]);
+                }
+            }
+            Scope scope3;
+            scope3.push_back(union_instr(scope1));
+            scope3.push_back(union_instr(scope2));
+            return union_instr(scope3);
+	}
+
+	std::shared_ptr<Mesh> result = append(scope);
+	// do_CSG(result, "union"); HERE
+	return result;
     }
 
     std::shared_ptr<Mesh> Builder::intersection(const Scope& scope) {
-	return append(scope); // replace with actual intersection
+        if(scope.size() == 1) {
+            return scope[0];
+        }
+
+        // Boolean operations can handle no more than max_arity_ operands.
+        // For a intersection with more than max_arity_ operands,
+        // split it into two.
+        if(scope.size() > max_arity_) {
+            Scope scope1;
+            Scope scope2;
+            index_t n1 = index_t(scope.size()/2);
+            for(index_t i=0; i<scope.size(); ++i) {
+                if(i < n1) {
+                    scope1.push_back(scope[i]);
+                } else {
+                    scope2.push_back(scope[i]);
+                }
+            }
+
+            Scope scope3;
+            scope3.push_back(union_instr(scope1));
+            scope3.push_back(union_instr(scope2));
+            return intersection(scope3);
+        }
+
+	std::shared_ptr<Mesh> result = append(scope);
+        // do_CSG(result, "intersection");
+        return result;
     }
 
     std::shared_ptr<Mesh> Builder::difference(const Scope& scope) {
-	return append(scope); // replace with actual difference
+        if(scope.size() == 1) {
+            return scope[0];
+        }
+
+        // Boolean operations can handle no more than max_arity_ operands.
+        // For a difference with more than max_arity_ operands, split it
+        // (by calling union_instr() that in turn splits the list if need be).
+        if(scope.size() > max_arity_) {
+            Scope scope2;
+            for(index_t i=1; i<scope.size(); ++i) {
+                scope2.push_back(scope[i]);
+            }
+            Scope scope3;
+            scope3.push_back(scope[0]);
+            scope3.push_back(union_instr(scope2));
+            return difference(scope3);
+        }
+
+	std::shared_ptr<Mesh> result = append(scope);
+        // construct the expression x0-x1-x2...-xn
+        std::string expr = "x0";
+        for(index_t i=1; i<scope.size(); ++i) {
+            expr += "-x" + String::to_string(i);
+        }
+
+        // do_CSG(result, expr);
+        return result;
     }
 
     std::shared_ptr<Mesh> Builder::group(const Scope& scope) {
@@ -463,7 +543,7 @@ namespace CSG {
             }
         }
 	result->remove_isolated_vertices();
-        result->update();
+        update_caches(result);
         return result;
     }
 
@@ -500,7 +580,7 @@ namespace CSG {
 
         for(index_t i=0; i<scope.size(); ++i) {
 	    if(scope[i]->nb_vertices() > 0) {
-		result->append_mesh(*scope[i], i);
+		result->append_mesh(*scope[i], (1u << i));
 	    }
         }
 
@@ -526,10 +606,76 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::import_with_openSCAD(
-        const std::string& filename, const std::string& layer,
+        const std::filesystem::path& filepath, const std::string& layer,
         index_t timestamp
     ) {
-	return std::make_shared<Mesh>();
+
+	std::shared_ptr<Mesh> result;
+
+        std::filesystem::path path = filepath;
+	path.remove_filename();
+
+	std::filesystem::path base = filepath.filename();
+	base.replace_extension("");
+
+	std::string extension = filepath.extension().string().substr(1);
+
+	std::filesystem::path geogram_filepath =
+	    path / std::filesystem::path(
+		std::string("geogram_") + base.c_str() + "_" + extension + "_"
+		+ layer + "_" +  String::to_string(timestamp) + ".stl"
+	    );
+
+	if(std::filesystem::is_regular_file(geogram_filepath)) {
+	    result = import(geogram_filepath);
+	    result->set_dimension(2);
+	    return result;
+	}
+
+        Logger::out("CSG") << "Did not find " << geogram_filepath << std::endl;
+        Logger::out("CSG") << "Trying to create it with OpenSCAD" << std::endl;
+
+        // Generate a simple linear extrusion, so that we can convert to STL
+        // (without it OpenSCAD refuses to create a STL with 2D content)
+        std::ofstream tmp("tmpscad.scad");
+        tmp << "group() {" << std::endl;
+        tmp << "   linear_extrude(height=1.0) {" << std::endl;
+        tmp << "      import(" << std::endl;
+        tmp << "          file = \"" << filepath.c_str() << "\"," << std::endl;
+        tmp << "          layer = \"" << layer << "\"," << std::endl;
+        tmp << "          timestamp = " << timestamp << std::endl;
+        tmp << "      );" << std::endl;
+        tmp << "   }" << std::endl;
+        tmp << "}" << std::endl;
+
+        // Start OpenSCAD and generate output as STL
+        if(system("openscad tmpscad.scad -o tmpscad.stl")) {
+            Logger::warn("CSG") << "Error while running openscad " << std::endl;
+            Logger::warn("CSG") << "(used to import " << filepath << ")"
+                                << std::endl;
+        }
+
+        // Load STL using our own loader
+        result = import("tmpscad.stl");
+
+        std::filesystem::remove("tmpscad.scad");
+	std::filesystem::remove("tmpscad.stl");
+
+        // Delete the facets that are coming from the linear extrusion
+        vector<index_t> delete_f(result->nb_triangles(), 0);
+        for(index_t t=0; t<result->nb_triangles(); ++t) {
+            for(index_t lv=0; lv<3; ++lv) {
+                index_t v = result->triangle_vertex(t,lv);
+                if(result->point(v).z != 0.0) {
+                    delete_f[t] = 1;
+                }
+            }
+        }
+        result->remove_triangles(delete_f);
+        mesh_save(*result, geogram_filepath);
+        result->set_dimension(2);
+
+        return result;
     }
 
     index_t Builder::get_fragments_from_r(double r, double twist) {
@@ -538,4 +684,25 @@ namespace CSG {
         }
         return index_t(ceil(fmax(fmin(twist / fa_, r*2*M_PI / fs_), 5)));
     }
+
+    void Builder::update_caches(std::shared_ptr<Mesh> M) {
+	csg_argused(M);
+    }
+
+    void Builder::do_CSG(
+	std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
+    ) {
+	// TODO
+	csg_argused(boolean_expr);
+	update_caches(mesh);
+    }
+
+    void Builder::triangulate(
+        std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
+    ) {
+	// TODO
+	csg_argused(boolean_expr);
+	update_caches(mesh);
+    }
+
 }

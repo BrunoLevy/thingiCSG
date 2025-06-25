@@ -87,6 +87,9 @@ namespace {
 
 namespace CSG {
 
+    MeshCachedInformation::~MeshCachedInformation() {
+    }
+
     Mesh::Mesh() : dimension_(3) {
     }
 
@@ -104,17 +107,13 @@ namespace CSG {
 	}
     }
 
-    void Mesh::update() {
-	// Update BBox here if need be
-    }
-
-    void Mesh::append_mesh(Mesh& M, index_t operand) {
+    void Mesh::append_mesh(Mesh& M, index_t operand_bits) {
 	index_t v_ofs = nb_vertices();
 	points_.reserve((nb_vertices() + M.nb_vertices())*dimension_);
 	edges_.reserve((nb_edges() + M.nb_edges())*2);
 	triangles_.reserve((nb_triangles() + M.nb_triangles())*3);
-	edges_operands_.reserve(nb_edges() + M.nb_edges());
-	triangles_operands_.reserve(nb_triangles() + M.nb_triangles());
+	edges_operands_bits_.reserve(nb_edges() + M.nb_edges());
+	triangles_operands_bits_.reserve(nb_triangles() + M.nb_triangles());
 
 	for(index_t v=0; v<M.nb_vertices(); ++v) {
 	    vec3 p = M.point(v);
@@ -129,7 +128,7 @@ namespace CSG {
 	    index_t v1 = M.edge_vertex(e,0);
 	    index_t v2 = M.edge_vertex(e,1);
 	    index_t ne = create_edge(v1 + v_ofs, v2 + v_ofs);
-	    edges_operands_[ne] = operand;
+	    edges_operands_bits_[ne] = operand_bits;
 	}
 
 	for(index_t t=0; t<M.nb_triangles(); ++t) {
@@ -137,17 +136,16 @@ namespace CSG {
 	    index_t v2 = M.triangle_vertex(t,1);
 	    index_t v3 = M.triangle_vertex(t,2);
 	    index_t nt = create_triangle(v1 + v_ofs, v2 + v_ofs, v3 + v_ofs);
-	    triangles_operands_[nt] = operand;
+	    triangles_operands_bits_[nt] = operand_bits;
 	}
     }
-
 
     void Mesh::clear() {
 	points_.clear();
 	edges_.clear();
 	triangles_.clear();
-	edges_operands_.clear();
-	triangles_operands_.clear();
+	edges_operands_bits_.clear();
+	triangles_operands_bits_.clear();
     }
 
     void Mesh::get_bbox(vec3& minp, vec3& maxp) const {
@@ -223,10 +221,10 @@ namespace CSG {
 	}
 
 	compress(edges_.data(), old2new, sizeof(index_t)*2);
-	compress(edges_operands_.data(), old2new, sizeof(index_t));
+	compress(edges_operands_bits_.data(), old2new, sizeof(index_t));
 
 	edges_.resize(2*nb);
-	edges_operands_.resize(nb);
+	edges_operands_bits_.resize(nb);
     }
 
     void Mesh::remove_triangles(vector<index_t>& to_remove) {
@@ -248,10 +246,10 @@ namespace CSG {
 	}
 
 	compress(triangles_.data(), old2new, sizeof(index_t)*3);
-	compress(triangles_operands_.data(), old2new, sizeof(index_t));
+	compress(triangles_operands_bits_.data(), old2new, sizeof(index_t));
 
 	triangles_.resize(3*nb);
-	triangles_operands_.resize(nb);
+	triangles_operands_bits_.resize(nb);
     }
 
     void Mesh::remove_isolated_vertices() {
@@ -270,12 +268,12 @@ namespace CSG {
 
     void Mesh::remove_all_edges() {
 	edges_.clear();
-	edges_operands_.clear();
+	edges_operands_bits_.clear();
     }
 
     void Mesh::remove_all_triangles() {
 	triangles_.clear();
-	triangles_operands_.clear();
+	triangles_operands_bits_.clear();
     }
 
     void Mesh::merge_duplicated_points() {

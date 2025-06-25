@@ -47,7 +47,7 @@ namespace CSG {
     );
 
     virtual std::shared_ptr<Mesh> import(
-        const std::string& filename, const std::string& layer="",
+        const std::filesystem::path& filename, const std::string& layer="",
         index_t timestamp=0,
         vec2 origin = vec2(0.0, 0.0), vec2 scale = vec2(1.0,1.0)
     );
@@ -274,6 +274,13 @@ namespace CSG {
 
     protected:
 
+    /**
+     * \brief Finds a file in the path
+     * \param[in,out] filename the file to be found. On exit, the complete
+     *   path to the file if found
+     * \retval true if the file could be found
+     * \retval false otherwise
+     */
     bool find_file(std::filesystem::path& filename);
 
     /**
@@ -282,7 +289,7 @@ namespace CSG {
      * \details Converts STEP files.
      */
     std::shared_ptr<Mesh> import_with_openSCAD(
-        const std::string& filename, const std::string& layer="",
+        const std::filesystem::path& filename, const std::string& layer="",
         index_t timestamp=0
     );
 
@@ -297,13 +304,48 @@ namespace CSG {
      */
     index_t get_fragments_from_r(double r, double twist = 360.0);
 
+
+    /**
+     * \brief Derived classes may override this function and compute
+     *  some cached information, e.g. bounding boxes, stored in the
+     *  mesh.
+     * \see Mesh::set_cached_information(), Mesh::get_cached_information()
+     */
+    virtual void update_caches(std::shared_ptr<Mesh> mesh);
+
+
+    /**
+     * \brief Apply a CSG operation to a mesh
+     * \details Default implementation does nothing, to be overriden by user.
+     * \param[in,out] the mesh
+     * \param[in] boolean_expr the operation to be applied
+     */
+    virtual void do_CSG(
+	std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
+    );
+
+    /**
+     * \brief Triangulates a 2D mesh.
+     * \param[in,out] mesh the input is a set of vertices and edges.
+     *   The output has a set of triangles inside the polygons defined by
+     *   the edges.
+     * \param[in] boolean_expr the operation to be applied
+     */
+    virtual void triangulate(
+        std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
+    );
+
+
     private:
+    index_t max_arity_;
     double fn_;
     double fs_;
     double fa_;
     bool verbose_;
     bool warnings_;
     std::vector<std::filesystem::path> file_path_;
+
+    friend class Compiler;
     };
 
 }
