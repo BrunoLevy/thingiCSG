@@ -1,21 +1,21 @@
 #include <CSG/mesh_io.h>
 #include <CSG/mesh.h>
 #include <CSG/line_stream.h>
+#include <CSG/b_stream.h>
 #include <fstream>
 
 namespace {
     using namespace CSG;
 
-    void mesh_save_STL_ascii(
+    bool mesh_save_STL_ascii(
 	const Mesh& M, const std::filesystem::path& filename
     ) {
 	std::ofstream out(filename);
 	if(!out) {
-	    throw(
-		std::logic_error(
-		    std::string("Could not open ") + filename.c_str()
-		)
-	    );
+	    Logger::err("IO")
+		<< "Could not open " << filename
+		<< std::endl;
+	    return false;
 	}
 	out << std::setprecision(19);
 	Logger::out("IO") << "Saving " << filename << std::endl;
@@ -47,13 +47,14 @@ namespace {
 	    out << "endfacet" << std::endl;
 	}
 	out << "endsolid" << std::endl;
+	return true;
     }
 
 
-    void mesh_load_STL_ascii(Mesh& M, const std::filesystem::path& filename) {
+    bool mesh_load_STL_ascii(Mesh& M, const std::filesystem::path& filename) {
 	LineInput in(filename);
 	if(!in.OK()) {
-	    return;
+	    return false;
 	}
 
 	M.clear();
@@ -77,7 +78,7 @@ namespace {
 				       << " vertices"
 				       << std::endl;
 		    M.clear();
-		    return;
+		    return false;
 		}
 		index_t t = M.create_triangle(
 		    facet_vertices[0], facet_vertices[1], facet_vertices[2]
@@ -89,7 +90,7 @@ namespace {
 			<< ": vertex line has " << in.nb_fields() - 1
 			<< " fields (at least 3 required)"
 			<< std::endl;
-		    return;
+		    return false;
 		}
 		vec3 p(
 		    in.field_as_double(1),
@@ -109,14 +110,14 @@ namespace {
 		<< "Line " << in.line_number()
 		<< ": current facet is not closed"
 		<< std::endl;
-	    return;
+	    return false;
 	}
 
 	if(M.nb_triangles() == 0) {
 	    Logger::err("I/O")
 		<< "STL file does not contain any facet"
 		<< std::endl;
-	    return;
+	    return false;
 	}
 
 
@@ -133,11 +134,93 @@ namespace {
 
 	M.merge_duplicated_points();
 	M.compute_borders();
+
+	return true;
     }
 
+    bool mesh_load_STL_binary(
+	Mesh& M, const std::filesystem::path& filename
+    ) {
+	M.clear();
+	M.set_dimension(3);
 
+	BinaryInputStream in(filename, BinaryStream::CSG_LITTLE_ENDIAN);
+	char header[80];
+	in.read_opaque_data(header, 80);
+	if(!in.OK()) {
+	    Logger::err("IO") <<  "failed to read header" << std::endl;
+	    return false;
+	}
 
-    void mesh_save_OBJ(
+	uint32_t nb_triangles;
+	in >> nb_triangles;
+	if(!in.OK()) {
+	    Logger::err("IO") << "failed to read number of triangles"
+			      << std::endl;
+	    return false;
+	}
+
+	M.create_vertices(nb_triangles*3);
+	M.create_triangles(nb_triangles);
+
+	for(index_t t = 0; t < nb_triangles; t++) {
+	    float N[3];
+            float XYZ[9];
+	    in >> N[0] >> N[1] >> N[2];
+	    for(index_t i = 0; i < 9; i++) {
+		in >> XYZ[i];
+	    }
+	    if(!in.OK()) {
+		Logger::err("IO") << "failed to read triangle" << std::endl;
+		return false;
+	    }
+
+	    uint16_t attrib;
+	    in >> attrib;
+
+	    M.point_3d(3*t)   = vec3(XYZ[0], XYZ[1], XYZ[2]);
+	    M.point_3d(3*t+1) = vec3(XYZ[3], XYZ[4], XYZ[5]);
+	    M.point_3d(3*t+2) = vec3(XYZ[6], XYZ[7], XYZ[8]);
+	    M.set_triangle(t, 3*t, 3*t+1, 3*t+2);
+	}
+	return true;
+    }
+
+    bool mesh_load_STL(
+	Mesh& M, const std::filesystem::path& filename
+    ) {
+	FILE* F = fopen(filename.c_str(), "rb");
+	if(F == nullptr) {
+	    return false;
+	}
+
+	// The safe way of checking whether an STL file is
+	// binary is to check whether the size of the file
+	// matches the size deduced from the number of triangles
+	// (many binary STL files start with SOLID although it
+	//  is supposed to be only for ASCII STL files)
+	fseek(F, 80, SEEK_SET);
+	int32_t nb_triangles;
+	if(fread(&nb_triangles, sizeof(nb_triangles), 1, F) != 1) {
+	    Logger::err("I/O")
+		<< "Cannot deduce the format of STL file"
+		<< std::endl;
+	    fclose(F);
+	    return false;
+	}
+	fseek(F, 0, SEEK_END);
+	long file_size = ftell(F);
+	fclose(F);
+	bool result;
+	if(file_size == long(nb_triangles * 50 + 84)) {
+	    result = mesh_load_STL_binary(M, filename);
+	} else {
+	    result = mesh_load_STL_ascii(M, filename);
+	}
+	return result;
+    }
+
+    bool mesh_save_OBJ(
 	const Mesh& M, const std::filesystem::path& filename
     ) {
 	std::ofstream out(filename);
@@ -167,27 +250,31 @@ namespace {
 		<< M.edge_vertex(e,1)+1
 		<< std::endl;
 	}
+	return true;
     }
 }
 
 namespace CSG {
 
-    void mesh_load(Mesh& M, const std::filesystem::path& filename) {
+    bool mesh_load(Mesh& M, const std::filesystem::path& filename) {
 	if(filename.extension() == ".stl" || filename.extension() == ".STL") {
-	    mesh_load_STL_ascii(M, filename);
-	    return;
+	    return mesh_load_STL(M, filename);
 	}
+	Logger::err("IO") << filename.extension() << ": Unknown load extension"
+			  << std::endl;
+	return false;
     }
 
-    void mesh_save(const Mesh& M, const std::filesystem::path& filename) {
+    bool mesh_save(const Mesh& M, const std::filesystem::path& filename) {
 	if(filename.extension() == ".stl" || filename.extension() == ".STL") {
-	    mesh_save_STL_ascii(M, filename);
-	    return;
+	    return mesh_save_STL_ascii(M, filename);
 	}
 	if(filename.extension() == ".obj" || filename.extension() == ".OBJ") {
-	    mesh_save_OBJ(M, filename);
-	    return;
+	    return mesh_save_OBJ(M, filename);
 	}
+	Logger::err("IO") << filename.extension() << ": Unknown write extension"
+			  << std::endl;
+	return false;
     }
 
 }

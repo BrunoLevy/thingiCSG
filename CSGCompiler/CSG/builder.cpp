@@ -674,6 +674,7 @@ namespace CSG {
         result->remove_triangles(delete_f);
         mesh_save(*result, geogram_filepath);
         result->set_dimension(2);
+	result->compute_borders();
 
         return result;
     }

@@ -7,8 +7,8 @@
 namespace CSG {
     class Mesh;
 
-    void CSG_API mesh_load(Mesh& M, const std::filesystem::path& filename);
-    void CSG_API mesh_save(const Mesh& M, const std::filesystem::path& filename);
+    bool CSG_API mesh_load(Mesh& M, const std::filesystem::path& filename);
+    bool CSG_API mesh_save(const Mesh& M, const std::filesystem::path& filename);
 }
 
 #endif
