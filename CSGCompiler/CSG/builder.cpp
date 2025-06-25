@@ -407,7 +407,7 @@ namespace CSG {
 	}
 
 	std::shared_ptr<Mesh> result = append(scope);
-	// do_CSG(result, "union"); HERE
+	do_CSG(result, "union");
 	return result;
     }
 
@@ -438,7 +438,7 @@ namespace CSG {
         }
 
 	std::shared_ptr<Mesh> result = append(scope);
-        // do_CSG(result, "intersection");
+	do_CSG(result, "intersection");
         return result;
     }
 
@@ -468,7 +468,7 @@ namespace CSG {
             expr += "-x" + String::to_string(i);
         }
 
-        // do_CSG(result, expr);
+	do_CSG(result, expr);
         return result;
     }
 
@@ -685,24 +685,112 @@ namespace CSG {
         return index_t(ceil(fmax(fmin(twist / fa_, r*2*M_PI / fs_), 5)));
     }
 
-    void Builder::update_caches(std::shared_ptr<Mesh> M) {
-	csg_argused(M);
-    }
-
     void Builder::do_CSG(
 	std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
     ) {
-	// TODO
-	csg_argused(boolean_expr);
+	if(mesh->dimension() == 2) {
+	    triangulate(mesh, boolean_expr);
+	    mesh->remove_all_triangles();
+	    mesh->remove_isolated_vertices();
+	    update_caches(mesh);
+	} else {
+	    // Insert your own mesh boolean operation code here !
+	}
 	update_caches(mesh);
     }
 
     void Builder::triangulate(
         std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
     ) {
-	// TODO
-	csg_argused(boolean_expr);
+	csg_assert(mesh->dimension() == 2);
+
+	// Keep edges only
+	mesh->remove_all_triangles();
+	mesh->remove_isolated_vertices();
+
+	bool has_operand_bit = true;
+	for(index_t e=0; e<mesh->nb_edges(); ++e) {
+	    if(mesh->edge_operand_bits(e) == NO_INDEX) {
+		has_operand_bit = false;
+		break;
+	    }
+	}
+
+	if(!has_operand_bit) {
+	    for(index_t e=0; e<mesh->nb_edges(); ++e) {
+		mesh->set_edge_operand_bits(e, 1u);
+	    }
+	}
+
+	vec3 pmin, pmax;
+	mesh->get_bbox(pmin, pmax);
+	double umin = pmin.x;
+	double vmin = pmin.y;
+	double umax = pmax.x;
+	double vmax = pmax.y;
+        double d = std::max(umax-umin, vmax-vmin);
+        d *= 10.0;
+        d = std::max(d, 1.0);
+        umin-=d;
+        vmin-=d;
+        umax+=d;
+        vmax+=d;
+	GEO::ExactCDT2d CDT;
+        CDT.create_enclosing_rectangle(umin, vmin, umax, vmax);
+
+        // In case there are duplicated vertices, keep track of indexing
+        vector<index_t> vertex_id(mesh->nb_vertices());
+        for(index_t v = 0; v < mesh->nb_vertices(); ++v) {
+            vec2 p = mesh->point_2d(v);
+            vertex_id[v] = CDT.insert(
+		GEO::ExactCDT2d::ExactPoint(p.x, p.y, 1.0), v
+	    );
+        }
+
+        // Memorize current number of vertices to detect vertices
+        // coming from constraint intersections
+        index_t nv0 = CDT.nv();
+
+        // Insert constraints
+        {
+            for(index_t e=0; e<mesh->nb_edges(); ++e) {
+                index_t v1 = mesh->edge_vertex(e,0);
+                index_t v2 = mesh->edge_vertex(e,1);
+                CDT.insert_constraint(
+                    vertex_id[v1], vertex_id[v2], mesh->edge_operand_bits(e)
+                );
+            }
+        }
+
+	CDT.classify_triangles(boolean_expr);
+
+        // Create vertices coming from constraint intersections
+        for(index_t v=nv0; v<CDT.nv(); ++v) {
+	    GEO::vec2 p = GEO::PCK::approximate(CDT.point(v));
+            CDT.set_vertex_id(
+                v,
+                mesh->create_vertex(vec2(p.x, p.y))
+            );
+        }
+
+        // Create triangles in target mesh
+        for(index_t t=0; t<CDT.nT(); ++t) {
+            mesh->create_triangle(
+                CDT.vertex_id(CDT.Tv(t,0)),
+                CDT.vertex_id(CDT.Tv(t,1)),
+                CDT.vertex_id(CDT.Tv(t,2))
+            );
+        }
+
+	mesh->compute_borders();
+	for(index_t e=0; e<mesh->nb_edges(); ++e) {
+	    mesh->set_edge_operand_bits(e,1u);
+	}
+
 	update_caches(mesh);
     }
 
+    void Builder::update_caches(std::shared_ptr<Mesh> M) {
+	csg_argused(M);
+    }
 }
