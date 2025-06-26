@@ -1,5 +1,5 @@
 [submodule "BOSL2"]
-	path = BOSL2/BOSL2
+	path = DATABASE/BOSL2/BOSL2
 	url = https://github.com/BelfrySCAD/BOSL2.git
 [submodule "CSGCompiler/STB"]
 	path = CSGCompiler/STB

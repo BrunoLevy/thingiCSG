@@ -347,6 +347,10 @@ namespace CSG {
 
     std::shared_ptr<Mesh> Builder::union_instr(const Scope& scope) {
 
+	if(scope.size() == 0) {
+	    return std::make_shared<Mesh>();
+	}
+
 	if(scope.size() == 1) {
 	    return scope[0];
 	}
@@ -376,6 +380,11 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::intersection(const Scope& scope) {
+
+	if(scope.size() == 0) {
+	    return std::make_shared<Mesh>();
+	}
+
         if(scope.size() == 1) {
             return scope[0];
         }
@@ -410,6 +419,10 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::difference(const Scope& scope) {
+	if(scope.size() == 0) {
+	    return std::make_shared<Mesh>();
+	}
+
         if(scope.size() == 1) {
             return scope[0];
         }
@@ -625,6 +638,11 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::append(const Scope& scope) {
+
+	if(scope.size() == 0) {
+	    return std::make_shared<Mesh>();
+	}
+
         if(scope.size() == 1) {
             return scope[0];
         }
