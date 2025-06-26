@@ -177,7 +177,7 @@ namespace CSG {
 	    return;
 	}
 
-	// compute re-indexing in same space as to_remove
+	// compute re-indexing in same vector as to_remove
 	vector<index_t>& old2new = to_remove;
 	index_t nb=0;
 	for(index_t& i : old2new) {
@@ -208,7 +208,7 @@ namespace CSG {
 	    return;
 	}
 
-	// compute re-indexing in same space as to_remove
+	// compute re-indexing in same vector as to_remove
 	vector<index_t>& old2new = to_remove;
 	index_t nb=0;
 	for(index_t& i : old2new) {
@@ -233,7 +233,7 @@ namespace CSG {
 	    return;
 	}
 
-	// compute re-indexing in same space as to_remove
+	// compute re-indexing in same vector as to_remove
 	vector<index_t>& old2new = to_remove;
 	index_t nb=0;
 	for(index_t& i : old2new) {

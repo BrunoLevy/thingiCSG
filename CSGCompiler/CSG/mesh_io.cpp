@@ -281,19 +281,7 @@ namespace {
 	    result = mesh_load_STL_ascii(M, filename);
 	}
 
-	bool z_all_zero = true;
-	for(index_t v = 0; v<M.nb_vertices(); ++v) {
-	    if(M.point_3d(v).z != 0.0) {
-		z_all_zero = false;
-		break;
-	    }
-	}
-	if(z_all_zero) {
-	    M.set_dimension(2);
-	}
-
 	M.merge_duplicated_points();
-	M.compute_borders();
 
 	return result;
     }
@@ -339,12 +327,29 @@ namespace {
 namespace CSG {
 
     bool mesh_load(Mesh& M, const std::filesystem::path& filename) {
+	bool result = false;
 	if(filename.extension() == ".stl" || filename.extension() == ".STL") {
-	    return mesh_load_STL(M, filename);
+	    result = mesh_load_STL(M, filename);
+	} else {
+	    Logger::err("IO") << filename.extension()
+			      << ": Unknown load extension"
+			      << std::endl;
 	}
-	Logger::err("IO") << filename.extension() << ": Unknown load extension"
-			  << std::endl;
-	return false;
+
+	if(result) {
+	    bool z_all_zero = true;
+	    for(index_t v = 0; v<M.nb_vertices(); ++v) {
+		if(M.point_3d(v).z != 0.0) {
+		    z_all_zero = false;
+		    break;
+		}
+	    }
+	    if(z_all_zero) {
+		M.set_dimension(2);
+	    }
+	}
+
+	return result;
     }
 
     bool mesh_save(const Mesh& M, const std::filesystem::path& filename) {

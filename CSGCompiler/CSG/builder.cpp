@@ -2,6 +2,10 @@
 #include <CSG/mesh_io.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
 
+// 2D shapes are represented with:
+// - a set of edges
+// - triangulation of the interior, with no internal vertex
+
 namespace {
     using namespace CSG;
 
@@ -46,6 +50,7 @@ namespace CSG {
         verbose_ = false;
 	warnings_ = false;
 	max_arity_ = 32;
+	fused_union_difference_ = true;
     }
 
     std::shared_ptr<Mesh> Builder::square(vec2 size, bool center) {
@@ -344,12 +349,14 @@ namespace CSG {
             mesh_load(*result,full_filename);
         }
 
-        // Apply origin and scale
+        // Apply origin and scale, triangulate
 	if(result->dimension() == 2) {
 	    for(index_t v=0; v<result->nb_vertices(); ++v) {
 		vec2 p = result->point_2d(v);
 		result->point_2d(v) = (p - origin) * scale;
 	    }
+	    result->compute_borders();
+	    triangulate(result, "union");
 	}
 
         update_caches(result);
@@ -442,6 +449,9 @@ namespace CSG {
             return scope[0];
         }
 
+	// TODO: how inersection is supposed to behave with more than 2
+	// objects in OpenSCAD ?
+
         // Boolean operations can handle no more than max_arity_ operands.
         // For a intersection with more than max_arity_ operands,
         // split it into two.
@@ -476,7 +486,7 @@ namespace CSG {
         // Boolean operations can handle no more than max_arity_ operands.
         // For a difference with more than max_arity_ operands, split it
         // (by calling union_instr() that in turn splits the list if need be).
-        if(scope.size() > max_arity_) {
+        if(!fused_union_difference_ || scope.size() > max_arity_) {
             Scope scope2;
             for(index_t i=1; i<scope.size(); ++i) {
                 scope2.emplace_back(scope[i]);
@@ -576,7 +586,8 @@ namespace CSG {
         const Scope& scope, double height, bool center, vec2 scale,
         index_t slices, double twist
     ) {
-	return std::make_shared<Mesh>();
+	std::shared_ptr<Mesh> result = union_instr(scope);
+	return result;
     }
 
     std::shared_ptr<Mesh> Builder::rotate_extrude(
@@ -621,7 +632,6 @@ namespace CSG {
     bool Builder::find_file(std::filesystem::path& filename) {
 	for(const std::filesystem::path& path: file_path_) {
 	    std::filesystem::path current_path = path / filename;
-	    std::cerr << " Trying " << current_path << std::endl;
 	    if(std::filesystem::is_regular_file(current_path)) {
 		filename = current_path;
 		return true;
@@ -697,7 +707,6 @@ namespace CSG {
         result->remove_triangles(delete_f);
         mesh_save(*result, geogram_filepath);
         result->set_dimension(2);
-	result->compute_borders();
 
         return result;
     }
@@ -714,8 +723,6 @@ namespace CSG {
     ) {
 	if(mesh->dimension() == 2) {
 	    triangulate(mesh, boolean_expr);
-	    mesh->remove_all_triangles();
-	    mesh->remove_isolated_vertices();
 	    update_caches(mesh);
 	} else {
 	    // Insert your own mesh boolean operation code here !

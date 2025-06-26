@@ -336,8 +336,9 @@ namespace CSG {
     );
 
 
-    private:
+    protected:
     index_t max_arity_;
+    bool fused_union_difference_;
     double fn_;
     double fs_;
     double fa_;
