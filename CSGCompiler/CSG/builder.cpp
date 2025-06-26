@@ -6,8 +6,6 @@
 // - a set of edges
 // - triangulation of the interior, with no internal vertex
 
-// rotate_exclude.scad, orientation problems
-
 namespace CSG {
 
     Builder::Builder() {
@@ -238,8 +236,8 @@ namespace CSG {
             return result;
         }
 
-	// If first side is a pole, then flip sides (sweep() supposes that the
-	// pole is always on the second side).
+	// If first side's capping is a pole, then flip sides
+	// (sweep() supposes that the pole is always on the second side).
         if(r[0] == 0.0) {
             std::swap(r[0],r[1]);
             std::swap(z[0],z[1]);
@@ -301,7 +299,31 @@ namespace CSG {
     std::shared_ptr<Mesh> Builder::surface_with_OpenSCAD(
         const std::string& filename, bool center, bool invert
     ) {
-	return std::make_shared<Mesh>();
+        Logger::out("CSG") << "Handling surface() with OpenSCAD" << std::endl;
+
+        // Generate a simple linear extrusion, so that we can convert to STL
+        // (without it OpenSCAD refuses to create a STL with 2D content)
+        std::ofstream tmp("tmpscad.scad");
+        tmp << "surface(" << std::endl;
+	tmp << "  file=\"" << filename << "\"," << std::endl;
+        tmp << "  center=" << String::to_string(center) << "," << std::endl;
+        tmp << "  invert=" << String::to_string(invert) << std::endl;
+        tmp << ");" << std::endl;
+
+        // Start OpenSCAD and generate output as STL
+        if(system("openscad tmpscad.scad -o tmpscad.stl")) {
+            Logger::warn("CSG") << "Error while running openscad " << std::endl;
+            Logger::warn("CSG") << "(used to generate surface) " << std::endl;
+        }
+
+        // Load STL using our own loader
+	std::shared_ptr<Mesh> result = import("tmpscad.stl");
+
+	std::filesystem::remove("tmpscad.scad");
+	std::filesystem::remove("tmpscad.stl");
+
+	update_caches(result);
+        return result;
     }
 
     std::shared_ptr<Mesh> Builder::text_with_OpenSCAD(
@@ -691,7 +713,8 @@ namespace CSG {
 	// there may be duplicated points around the poles
 	result->merge_duplicated_points();
 
-	// Todo: understand why we should flip when angle is positive (?!)
+	// Note: we flip when angle is *positive* because X,Y,rotate dir
+	// is not a direct basis.
 	if(angle > 0) {
 	    result->flip();
 	}
