@@ -315,31 +315,35 @@ namespace CSG {
 
 
     enum SweepFlags {
-	SWEEP_DEFAULTS,
-	SWEEP_CAPPING_IS_POLE,
-	SWEEP_V_IS_PERIODIC
+	SWEEP_CAP,
+	SWEEP_POLE,
+	SWEEP_PERIODIC
     };
 
     /**
      * \brief The generalized sweeping operation
+     * \details Used to implement sphere(), cylinder(), linear_extrude() and
+     *  rotate_extrude()
      * \param[in,out] mesh on entry, a 2D mesh. On exit, a 3D mesh.
      * \param[in] nv number of sweeping steps. Minimum is 2.
      * \param[in] sweep_path a function that maps u,v indices to 3D
      *  points, where u is the index of a initial 2D vertex and v
-     *  in [0..nv-1] the sweeping step.
+     *  in [0..nv-1] the sweeping step. One can use the point at vertex
+     *  u to evaluate the path (it will not be overwritten before calling
+     *  sweep_path()). Note that u vertices are not necessarily ordered.
      * \param[in] flags one of:
-     *   - SWEEP_DEFAULT standard sweeping, generate second capping by
+     *   - SWEEP_CAP standard sweeping, generate second capping by
      *     copying first one
-     *   - SWEEP_CAPPING_IS_POLE if last sweeping step degenerates to a
+     *   - SWEEP_POLE if last sweeping step degenerates to a
      *     single point
-     *   - SWEEP_V_IS_PERIODIC if no cappings should be generated and last
+     *   - SWEEP_PERIODIC if no cappings should be generated and last
      *     sweeping step corresponds to first one
      */
     virtual void sweep(
 	std::shared_ptr<Mesh> mesh,
 	index_t nv,
 	std::function<vec3(index_t, index_t)> sweep_path,
-	SweepFlags flags = SWEEP_DEFAULTS
+	SweepFlags flags = SWEEP_CAP
     );
 
     /**

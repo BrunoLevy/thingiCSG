@@ -250,7 +250,7 @@ namespace CSG {
 		    r[v]*p.x, r[v]*p.y, z[v]
 		);
 	    },
-	    (r[1] == 0.0) ? SWEEP_CAPPING_IS_POLE : SWEEP_DEFAULTS
+	    (r[1] == 0.0) ? SWEEP_POLE : SWEEP_CAP
 	);
 
 	update_caches(result);
@@ -575,7 +575,7 @@ namespace CSG {
 
 		return vec3(x,y,z);
 	    },
-	    (scale == vec2(0.0,0.0)) ? SWEEP_CAPPING_IS_POLE : SWEEP_DEFAULTS
+	    (scale == vec2(0.0,0.0)) ? SWEEP_POLE : SWEEP_CAP
 	);
 
 	return result;
@@ -633,7 +633,7 @@ namespace CSG {
 		    ref.y
 		);
 	    },
-	    (angle == 360.0) ? SWEEP_V_IS_PERIODIC : SWEEP_DEFAULTS
+	    (angle == 360.0) ? SWEEP_PERIODIC : SWEEP_CAP
 	);
 
 	// there may be duplicated points around the poles
@@ -779,13 +779,13 @@ namespace CSG {
 
 	index_t total_nb_vertices;
 	switch(flags) {
-	case SWEEP_DEFAULTS: {
+	case SWEEP_CAP: {
 	    total_nb_vertices = nu*nv;
 	} break;
-	case SWEEP_CAPPING_IS_POLE: {
+	case SWEEP_POLE: {
 	    total_nb_vertices = nu*(nv-1)+1;
 	} break;
-	case SWEEP_V_IS_PERIODIC: {
+	case SWEEP_PERIODIC: {
 	    total_nb_vertices = nu*(nv-1);
 	    M->remove_all_triangles();
 	} break;
@@ -806,15 +806,15 @@ namespace CSG {
 
 	// Particular case: last slice
 	switch(flags) {
-	case SWEEP_DEFAULTS:
+	case SWEEP_CAP:
 	    for(index_t u=0; u<nu; ++u) {
 		M->point_3d((nv-1)*nu+u) = sweep_path(u,nv-1);
 	    }
 	    break;
-	case SWEEP_CAPPING_IS_POLE:
+	case SWEEP_POLE:
 	    M->point_3d((nv-1)*nu) = sweep_path(0,nv-1);
 	    break;
-	case SWEEP_V_IS_PERIODIC:
+	case SWEEP_PERIODIC:
 	    // Nothing to do, last slice is same as first slice
 	    break;
 	}
@@ -838,7 +838,7 @@ namespace CSG {
 
 	// generate walls (last "brick" row)
 	switch(flags) {
-	case SWEEP_DEFAULTS: {
+	case SWEEP_CAP: {
 	    index_t v = nv-2;
 	    for(index_t e=0; e < M->nb_edges(); ++e) {
 		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
@@ -849,7 +849,7 @@ namespace CSG {
 		M->create_triangle(vx3, vx2, vx4);
 	    }
 	} break;
-	case SWEEP_CAPPING_IS_POLE: {
+	case SWEEP_POLE: {
 	    index_t v = nv-2;
 	    for(index_t e=0; e < M->nb_edges(); ++e) {
 		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
@@ -858,7 +858,7 @@ namespace CSG {
 		M->create_triangle(vx1, vx2, vx3);
 	    }
 	} break;
-	case SWEEP_V_IS_PERIODIC: {
+	case SWEEP_PERIODIC: {
 	    index_t v = nv-2;
 	    for(index_t e=0; e < M->nb_edges(); ++e) {
 		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
@@ -871,8 +871,8 @@ namespace CSG {
 	} break;
 	}
 
-	// generate capping
-	if(flags == SWEEP_DEFAULTS) {
+	// generate second capping
+	if(flags == SWEEP_CAP) {
 	    index_t nt1 = M->nb_triangles();
 	    index_t v_ofs = nu*(nv-1);
 	    M->create_triangles(nt0);
@@ -886,7 +886,8 @@ namespace CSG {
 	    }
 	}
 
-	if(flags == SWEEP_DEFAULTS || flags == SWEEP_CAPPING_IS_POLE) {
+	// flip triangles that were existing to generate first capping
+	if(flags == SWEEP_CAP || flags == SWEEP_POLE) {
 	    for(index_t t=0; t<nt0; ++t) {
 		M->set_triangle(
 		    t,
