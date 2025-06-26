@@ -63,6 +63,7 @@ namespace CSG {
     using glm::dot;
     using glm::min;
     using glm::max;
+    using glm::determinant;
 
     inline std::ostream& operator<<(std::ostream& out, vec2 v) {
 	return (out << v.x << ' ' << v.y);

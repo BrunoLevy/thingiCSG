@@ -392,6 +392,17 @@ namespace CSG {
 		result->point_2d(v) = (1.0 / p.w) * vec2(p.x, p.y);
 	    }
 	}
+	// Preserve normals orientations if transform is left-handed
+	if(determinant(M) < 0.0) {
+	    for(index_t t=0; t<result->nb_triangles(); ++t) {
+		result->set_triangle(
+		    t,
+		    result->triangle_vertex(t,2),
+		    result->triangle_vertex(t,1),
+		    result->triangle_vertex(t,0)
+		);
+	    }
+	}
 	update_caches(result);
 	return result;
     }
@@ -641,9 +652,7 @@ namespace CSG {
 	    );
 
 	if(std::filesystem::is_regular_file(geogram_filepath)) {
-	    result = import(geogram_filepath);
-	    result->set_dimension(2);
-	    return result;
+	    return import(geogram_filepath);
 	}
 
         Logger::out("CSG") << "Did not find " << geogram_filepath << std::endl;
@@ -767,15 +776,13 @@ namespace CSG {
         index_t nv0 = CDT.nv();
 
         // Insert constraints
-        {
-            for(index_t e=0; e<mesh->nb_edges(); ++e) {
-                index_t v1 = mesh->edge_vertex(e,0);
-                index_t v2 = mesh->edge_vertex(e,1);
-                CDT.insert_constraint(
-                    vertex_id[v1], vertex_id[v2], mesh->edge_operand_bits(e)
-                );
-            }
-        }
+	for(index_t e=0; e<mesh->nb_edges(); ++e) {
+	    index_t v1 = mesh->edge_vertex(e,0);
+	    index_t v2 = mesh->edge_vertex(e,1);
+	    CDT.insert_constraint(
+		vertex_id[v1], vertex_id[v2], mesh->edge_operand_bits(e)
+	    );
+	}
 
 	CDT.classify_triangles(boolean_expr);
 
