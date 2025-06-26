@@ -250,7 +250,7 @@ namespace CSG {
 		    r[v]*p.x, r[v]*p.y, z[v]
 		);
 	    },
-	    (r[1] == 0.0) ? SWEEP_CAPPING_IS_APEX : SWEEP_DEFAULTS
+	    (r[1] == 0.0) ? SWEEP_CAPPING_IS_POLE : SWEEP_DEFAULTS
 	);
 
 	update_caches(result);
@@ -562,7 +562,7 @@ namespace CSG {
 
 		return vec3(x,y,z);
 	    },
-	    (scale == vec2(0.0,0.0)) ? SWEEP_CAPPING_IS_APEX : SWEEP_DEFAULTS
+	    (scale == vec2(0.0,0.0)) ? SWEEP_CAPPING_IS_POLE : SWEEP_DEFAULTS
 	);
 
 	return result;
@@ -571,12 +571,56 @@ namespace CSG {
     std::shared_ptr<Mesh> Builder::rotate_extrude(
 	const Scope& scope, double angle
     ) {
-	return std::make_shared<Mesh>();
+	std::shared_ptr<Mesh> result = union_instr(scope);
+	result->set_dimension(2);
+
+        if(angle == 360.0) {
+            result->remove_all_triangles();
+            result->remove_isolated_vertices();
+        }
+
+	// remove edges aligned with rotation axis
+	{
+	    vector<index_t> remove_edges(result->nb_edges(),0);
+	    for(index_t e=0; e<result->nb_edges(); ++e) {
+                index_t v1 = result->edge_vertex(e,0);
+                index_t v2 = result->edge_vertex(e,1);
+		if(
+		    result->point_2d(v1).x == 0.0 &&
+		    result->point_2d(v2).x == 0.0
+		) {
+		    remove_edges[e] = 1;
+		}
+	    }
+	    result->remove_edges(remove_edges);
+	}
+
+
+        double R = 0.0;
+        for(index_t v=0; v<result->nb_vertices(); ++v) {
+            R = std::max(R, result->point_2d(v).x);
+        }
+        index_t slices = get_fragments_from_r(R,angle);
+	index_t nv = slices+1;
+
+	sweep(
+	    result, nv, [&](index_t u, index_t v)->vec3 {
+		vec2 ref(result->point_3d(u).x, result->point_3d(u).y);
+		double t = double(v) / double(nv-1);
+		double alpha = t * 2.0 * M_PI * angle / 360.0;
+		return vec3(
+		    ref.x * cos(alpha),
+		    ref.x * sin(alpha),
+		    ref.y
+		);
+	    },
+	    (angle == 360.0) ? SWEEP_V_IS_PERIODIC : SWEEP_DEFAULTS
+	);
+	update_caches(result);
+	return result;
     }
 
-    std::shared_ptr<Mesh> Builder::projection(
-	const Scope& scope, bool cut
-    ) {
+    std::shared_ptr<Mesh> Builder::projection(const Scope& scope, bool cut) {
 	return std::make_shared<Mesh>();
     }
 
@@ -710,10 +754,10 @@ namespace CSG {
 	case SWEEP_DEFAULTS: {
 	    total_nb_vertices = nu*nv;
 	} break;
-	case SWEEP_CAPPING_IS_APEX: {
+	case SWEEP_CAPPING_IS_POLE: {
 	    total_nb_vertices = nu*(nv-1)+1;
 	} break;
-	case SWEEP_V_IS_CYCLIC: {
+	case SWEEP_V_IS_PERIODIC: {
 	    total_nb_vertices = nu*(nv-1);
 	    M->remove_all_triangles();
 	} break;
@@ -739,10 +783,10 @@ namespace CSG {
 		M->point_3d((nv-1)*nu+u) = sweep_path(u,nv-1);
 	    }
 	    break;
-	case SWEEP_CAPPING_IS_APEX:
+	case SWEEP_CAPPING_IS_POLE:
 	    M->point_3d((nv-1)*nu) = sweep_path(0,nv-1);
 	    break;
-	case SWEEP_V_IS_CYCLIC:
+	case SWEEP_V_IS_PERIODIC:
 	    // Nothing to do, last slice is same as first slice
 	    break;
 	}
@@ -777,7 +821,7 @@ namespace CSG {
 		M->create_triangle(vx3, vx2, vx4);
 	    }
 	} break;
-	case SWEEP_CAPPING_IS_APEX: {
+	case SWEEP_CAPPING_IS_POLE: {
 	    index_t v = nv-2;
 	    for(index_t e=0; e < M->nb_edges(); ++e) {
 		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
@@ -786,7 +830,7 @@ namespace CSG {
 		M->create_triangle(vx1, vx2, vx3);
 	    }
 	} break;
-	case SWEEP_V_IS_CYCLIC: {
+	case SWEEP_V_IS_PERIODIC: {
 	    index_t v = nv-2;
 	    for(index_t e=0; e < M->nb_edges(); ++e) {
 		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
@@ -814,7 +858,7 @@ namespace CSG {
 	    }
 	}
 
-	if(flags == SWEEP_DEFAULTS || flags == SWEEP_CAPPING_IS_APEX) {
+	if(flags == SWEEP_DEFAULTS || flags == SWEEP_CAPPING_IS_POLE) {
 	    for(index_t t=0; t<nt0; ++t) {
 		M->set_triangle(
 		    t,

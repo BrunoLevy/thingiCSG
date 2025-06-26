@@ -316,8 +316,8 @@ namespace CSG {
 
     enum SweepFlags {
 	SWEEP_DEFAULTS,
-	SWEEP_CAPPING_IS_APEX,
-	SWEEP_V_IS_CYCLIC
+	SWEEP_CAPPING_IS_POLE,
+	SWEEP_V_IS_PERIODIC
     };
 
     /**
@@ -330,9 +330,9 @@ namespace CSG {
      * \param[in] flags one of:
      *   - SWEEP_DEFAULT standard sweeping, generate second capping by
      *     copying first one
-     *   - SWEEP_CAPPING_IS_APEX if last sweeping step degenerates to a
+     *   - SWEEP_CAPPING_IS_POLE if last sweeping step degenerates to a
      *     single point
-     *   - SWEEP_V_IS_CYCLIC if no cappings should be generated and last
+     *   - SWEEP_V_IS_PERIODIC if no cappings should be generated and last
      *     sweeping step corresponds to first one
      */
     virtual void sweep(
