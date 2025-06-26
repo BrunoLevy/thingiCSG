@@ -691,6 +691,7 @@ namespace CSG {
 	// there may be duplicated points around the poles
 	result->merge_duplicated_points();
 
+	// Todo: understand why we should flip when angle is positive (?!)
 	if(angle > 0) {
 	    result->flip();
 	}
