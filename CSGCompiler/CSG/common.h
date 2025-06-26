@@ -58,6 +58,7 @@ namespace CSG {
     typedef glm::ivec2 ivec2;
     typedef glm::ivec3 ivec3;
 
+    using glm::length;
     using glm::normalize;
     using glm::cross;
     using glm::dot;

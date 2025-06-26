@@ -257,138 +257,6 @@ namespace CSG {
 	return result;
     }
 
-    void Builder::sweep(
-	std::shared_ptr<Mesh> M,
-	index_t nv,
-	std::function<vec3(index_t u, index_t v)> sweep_path,
-	SweepFlags flags
-    ) {
-	csg_assert(M->dimension() == 2);
-	index_t nu = M->nb_vertices();
-
-	index_t total_nb_vertices;
-	switch(flags) {
-	case SWEEP_DEFAULTS: {
-	    total_nb_vertices = nu*nv;
-	} break;
-	case SWEEP_CAPPING_IS_APEX: {
-	    total_nb_vertices = nu*(nv-1)+1;
-	} break;
-	case SWEEP_V_IS_CYCLIC: {
-	    total_nb_vertices = nu*(nv-1);
-	    M->remove_all_triangles();
-	} break;
-	}
-
-	index_t nt0 = M->nb_triangles();
-
-	M->set_dimension(3);
-	M->create_vertices(total_nb_vertices - nu);
-
-	// Do not touch first slice for now, because it
-	// may be used by sweep_path (as the origin of paths)
-	for(index_t v=1; v<nv-1; ++v) {
-	    for(index_t u=0; u<nu; ++u) {
-		M->point_3d(v*nu+u) = sweep_path(u,v);
-	    }
-	}
-
-	// Particular case: last slice
-	switch(flags) {
-	case SWEEP_DEFAULTS:
-	    for(index_t u=0; u<nu; ++u) {
-		M->point_3d((nv-1)*nu+u) = sweep_path(u,nv-1);
-	    }
-	    break;
-	case SWEEP_CAPPING_IS_APEX:
-	    M->point_3d((nv-1)*nu) = sweep_path(0,nv-1);
-	    break;
-	case SWEEP_V_IS_CYCLIC:
-	    // Nothing to do, last slice is same as first slice
-	    break;
-	}
-
-        // Now map first slice
-        for(index_t u=0; u<nu; ++u) {
-	    M->point_3d(u) = sweep_path(u,0);
-	}
-
-	// generate walls
-	for(index_t v=0; v+2 < nv; ++v) {
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = (v+1) * nu + M->edge_vertex(e,0) ;
-		index_t vx4 = (v+1) * nu + M->edge_vertex(e,1) ;
-		M->create_triangle(vx1, vx2, vx3);
-		M->create_triangle(vx3, vx2, vx4);
-	    }
-	}
-
-	// generate walls (last "brick" row)
-	switch(flags) {
-	case SWEEP_DEFAULTS: {
-	    index_t v = nv-2;
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = (v+1) * nu + M->edge_vertex(e,0) ;
-		index_t vx4 = (v+1) * nu + M->edge_vertex(e,1) ;
-		M->create_triangle(vx1, vx2, vx3);
-		M->create_triangle(vx3, vx2, vx4);
-	    }
-	} break;
-	case SWEEP_CAPPING_IS_APEX: {
-	    index_t v = nv-2;
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = nu * (nv-1);
-		M->create_triangle(vx1, vx2, vx3);
-	    }
-	} break;
-	case SWEEP_V_IS_CYCLIC: {
-	    index_t v = nv-2;
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = M->edge_vertex(e,0) ;
-		index_t vx4 = M->edge_vertex(e,1) ;
-		M->create_triangle(vx1, vx2, vx3);
-		M->create_triangle(vx3, vx2, vx4);
-	    }
-	} break;
-	}
-
-	// generate capping
-	if(flags == SWEEP_DEFAULTS) {
-	    index_t nt1 = M->nb_triangles();
-	    index_t v_ofs = nu*(nv-1);
-	    M->create_triangles(nt0);
-	    for(index_t t=0; t<nt0; ++t) {
-		M->set_triangle(
-		    t+nt1,
-		    v_ofs + M->triangle_vertex(t,0),
-		    v_ofs + M->triangle_vertex(t,1),
-		    v_ofs + M->triangle_vertex(t,2)
-		);
-	    }
-	}
-
-	if(flags == SWEEP_DEFAULTS || flags == SWEEP_CAPPING_IS_APEX) {
-	    for(index_t t=0; t<nt0; ++t) {
-		M->set_triangle(
-		    t,
-		    M->triangle_vertex(t,2),
-		    M->triangle_vertex(t,1),
-		    M->triangle_vertex(t,0)
-		);
-	    }
-	}
-
-	M->remove_all_edges();
-    }
-
 
     std::shared_ptr<Mesh> Builder::import(
         const std::filesystem::path& filename, const std::string& layer,
@@ -650,6 +518,53 @@ namespace CSG {
         index_t slices, double twist
     ) {
 	std::shared_ptr<Mesh> result = union_instr(scope);
+
+        double z1 = center ? -height/2.0 : 0.0;
+        double z2 = center ?  height/2.0 : height;
+
+        if(slices == 0) {
+            slices = index_t(fn_);
+        }
+        if(slices == 0 && twist != 0.0) {
+            double R = 0;
+            for(index_t v=0; v<result->nb_vertices(); ++v) {
+		vec2 p = result->point_2d(v);
+                R = std::max(R, length(p));
+                R = std::max(R, length(p*scale));
+            }
+            slices = get_fragments_from_r(R,twist);
+        }
+        slices = std::max(slices, index_t(1));
+
+	index_t nv = slices+1;
+
+	sweep(
+	    result, nv, [&](index_t u, index_t v)->vec3 {
+		vec2 ref(result->point_3d(u).x, result->point_3d(u).y);
+		double t = double(v) / double(nv-1);
+
+		double s = 1.0 - t;
+		double z = s*z1 + t*z2;
+		vec2   sz = s*vec2(1.0, 1.0) + t*scale;
+
+		double x = ref.x * sz.x;
+		double y = ref.y * sz.y;
+
+		if(twist != 0.0) {
+		    double alpha = twist*t*M_PI/180.0;
+		    double ca = cos(alpha);
+		    double sa = sin(alpha);
+		    double x2 =  ca*x+sa*y;
+		    double y2 = -sa*x+ca*y;
+		    x = x2;
+		    y = y2;
+		}
+
+		return vec3(x,y,z);
+	    },
+	    (scale == vec2(0.0,0.0)) ? SWEEP_CAPPING_IS_APEX : SWEEP_DEFAULTS
+	);
+
 	return result;
     }
 
@@ -779,6 +694,138 @@ namespace CSG {
             return index_t(fn_ >= 3 ? fn_ : 3);
         }
         return index_t(ceil(fmax(fmin(twist / fa_, r*2*M_PI / fs_), 5)));
+    }
+
+    void Builder::sweep(
+	std::shared_ptr<Mesh> M,
+	index_t nv,
+	std::function<vec3(index_t u, index_t v)> sweep_path,
+	SweepFlags flags
+    ) {
+	M->set_dimension(2);
+	index_t nu = M->nb_vertices();
+
+	index_t total_nb_vertices;
+	switch(flags) {
+	case SWEEP_DEFAULTS: {
+	    total_nb_vertices = nu*nv;
+	} break;
+	case SWEEP_CAPPING_IS_APEX: {
+	    total_nb_vertices = nu*(nv-1)+1;
+	} break;
+	case SWEEP_V_IS_CYCLIC: {
+	    total_nb_vertices = nu*(nv-1);
+	    M->remove_all_triangles();
+	} break;
+	}
+
+	index_t nt0 = M->nb_triangles();
+
+	M->set_dimension(3);
+	M->create_vertices(total_nb_vertices - nu);
+
+	// Do not touch first slice for now, because it
+	// may be used by sweep_path (as the origin of paths)
+	for(index_t v=1; v<nv-1; ++v) {
+	    for(index_t u=0; u<nu; ++u) {
+		M->point_3d(v*nu+u) = sweep_path(u,v);
+	    }
+	}
+
+	// Particular case: last slice
+	switch(flags) {
+	case SWEEP_DEFAULTS:
+	    for(index_t u=0; u<nu; ++u) {
+		M->point_3d((nv-1)*nu+u) = sweep_path(u,nv-1);
+	    }
+	    break;
+	case SWEEP_CAPPING_IS_APEX:
+	    M->point_3d((nv-1)*nu) = sweep_path(0,nv-1);
+	    break;
+	case SWEEP_V_IS_CYCLIC:
+	    // Nothing to do, last slice is same as first slice
+	    break;
+	}
+
+        // Now map first slice
+        for(index_t u=0; u<nu; ++u) {
+	    M->point_3d(u) = sweep_path(u,0);
+	}
+
+	// generate walls
+	for(index_t v=0; v+2 < nv; ++v) {
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = (v+1) * nu + M->edge_vertex(e,0) ;
+		index_t vx4 = (v+1) * nu + M->edge_vertex(e,1) ;
+		M->create_triangle(vx1, vx2, vx3);
+		M->create_triangle(vx3, vx2, vx4);
+	    }
+	}
+
+	// generate walls (last "brick" row)
+	switch(flags) {
+	case SWEEP_DEFAULTS: {
+	    index_t v = nv-2;
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = (v+1) * nu + M->edge_vertex(e,0) ;
+		index_t vx4 = (v+1) * nu + M->edge_vertex(e,1) ;
+		M->create_triangle(vx1, vx2, vx3);
+		M->create_triangle(vx3, vx2, vx4);
+	    }
+	} break;
+	case SWEEP_CAPPING_IS_APEX: {
+	    index_t v = nv-2;
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = nu * (nv-1);
+		M->create_triangle(vx1, vx2, vx3);
+	    }
+	} break;
+	case SWEEP_V_IS_CYCLIC: {
+	    index_t v = nv-2;
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = M->edge_vertex(e,0) ;
+		index_t vx4 = M->edge_vertex(e,1) ;
+		M->create_triangle(vx1, vx2, vx3);
+		M->create_triangle(vx3, vx2, vx4);
+	    }
+	} break;
+	}
+
+	// generate capping
+	if(flags == SWEEP_DEFAULTS) {
+	    index_t nt1 = M->nb_triangles();
+	    index_t v_ofs = nu*(nv-1);
+	    M->create_triangles(nt0);
+	    for(index_t t=0; t<nt0; ++t) {
+		M->set_triangle(
+		    t+nt1,
+		    v_ofs + M->triangle_vertex(t,0),
+		    v_ofs + M->triangle_vertex(t,1),
+		    v_ofs + M->triangle_vertex(t,2)
+		);
+	    }
+	}
+
+	if(flags == SWEEP_DEFAULTS || flags == SWEEP_CAPPING_IS_APEX) {
+	    for(index_t t=0; t<nt0; ++t) {
+		M->set_triangle(
+		    t,
+		    M->triangle_vertex(t,2),
+		    M->triangle_vertex(t,1),
+		    M->triangle_vertex(t,0)
+		);
+	    }
+	}
+
+	M->remove_all_edges();
     }
 
     void Builder::do_CSG(
