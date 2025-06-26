@@ -6,42 +6,6 @@
 // - a set of edges
 // - triangulation of the interior, with no internal vertex
 
-namespace {
-    using namespace CSG;
-
-    /**
-     * \brief Triangulates a closed contour using a zigzag pattern
-     * \param[in,out] M a reference to the mesh
-     * \param[in] low , high first and last vertex in the contour
-     * \param[in] flip if set, flip triangle orientation
-     */
-    void triangulate_contour_zigzag(
-	Mesh& M, index_t low, index_t high, bool flip
-    ) {
-	for(;;) {
-	    if(low+1==high) {
-		break;
-	    }
-	    if(flip) {
-		M.create_triangle(low+1, low, high);
-	    } else {
-		M.create_triangle(low, low+1, high);
-	    }
-	    ++low;
-	    if(high-1==low) {
-		break;
-	    }
-	    if(flip) {
-		M.create_triangle(low, high, high-1);
-	    } else {
-		M.create_triangle(low, high-1, high);
-	    }
-	    --high;
-	}
-    }
-}
-
-
 namespace CSG {
 
     Builder::Builder() {
@@ -97,10 +61,13 @@ namespace CSG {
 	return M;
     }
 
-    std::shared_ptr<Mesh> Builder::circle(double r) {
+    std::shared_ptr<Mesh> Builder::circle(double r, index_t nu) {
 	std::shared_ptr<Mesh> M = std::make_shared<Mesh>();
 
-        index_t nu = get_fragments_from_r(r);
+	if(nu == 0) {
+	    nu = get_fragments_from_r(r);
+	}
+	nu = std::max(nu, index_t(3));
         M->set_dimension(2);
 
         if(r <= 0.0) {
@@ -121,7 +88,23 @@ namespace CSG {
             M->create_vertex(vec2(x,y));
         }
 
-	triangulate_contour_zigzag(*M, 0, nu-1, false);
+	// zigzag triangulation
+	{
+	    index_t low = 0;
+	    index_t high = nu-1;
+	    for(;;) {
+		if(low+1==high) {
+		    break;
+		}
+		M->create_triangle(low, low+1, high);
+		++low;
+		if(high-1==low) {
+		    break;
+		}
+		M->create_triangle(low, high-1, high);
+		--high;
+	    }
+	}
 
         for(index_t u=0; u<nu; ++u) {
 	    M->create_edge(u, (u+1)%nu);
@@ -197,8 +180,7 @@ namespace CSG {
 	nu = std::max(nu, index_t(3));
 	nv = std::max(nv, index_t(2));
 
-	std::shared_ptr<Mesh> M = std::make_shared<Mesh>();
-	M->set_dimension(3);
+	std::shared_ptr<Mesh> result;
 
         if(r <= 0.0) {
 	    if(warnings_) {
@@ -206,52 +188,29 @@ namespace CSG {
 		    << "sphere with negative radius (returning empty shape)"
 		    << std::endl;
 	    }
-            return M;
+            return result;
         }
 
-        for(index_t v=0; v<nv; ++v) {
-            double phi = (double(v) + 0.5)*M_PI/double(nv) - M_PI/2.0;
-            double cphi = cos(phi);
-            double sphi = sin(phi);
-            for(index_t u=0; u<nu; ++u) {
-                double theta = double(u)*2.0*M_PI/double(nu);
-                double ctheta = cos(theta);
-                double stheta = sin(theta);
-                double x = r*ctheta*cphi;
-                double y = r*stheta*cphi;
-                double z = r*sphi;
-                M->create_vertex(vec3(x,y,z));
-            }
-        }
+	result = circle(1.0, nu);
 
-        // Maps param coordinates to mesh index
-        auto vindex = [nu](index_t u, index_t v)->index_t {
-            return v*nu+(u%nu); // make u wraparound
-        };
+	sweep(
+	    result, nv,
+	    [&](index_t u, index_t v)->vec3 {
+		double phi = (double(v) + 0.5)*M_PI/double(nv) - M_PI/2.0;
+		double cphi = cos(phi);
+		double sphi = sin(phi);
+                double ctheta = result->point_3d(u).x;
+                double stheta = result->point_3d(u).y;
+		return vec3(
+		    r*ctheta*cphi,
+		    r*stheta*cphi,
+		    r*sphi
+		);
+	    }
+	);
 
-        for(index_t v=0; v<nv-1; ++v) {
-            for(index_t u=0; u<nu; ++u) {
-                index_t v00 = vindex(u  ,v  );
-                index_t v10 = vindex(u+1,v  );
-                index_t v01 = vindex(u  ,v+1);
-                index_t v11 = vindex(u+1,v+1);
-		M->create_triangle(v00, v10, v01);
-		M->create_triangle(v10, v11, v01);
-            }
-        }
-
-	// Cappings with zigzag triangulation
-	{
-	    index_t offset = nu*(nv-1);
-	    index_t low=0;
-	    index_t high=nu-1;
-	    triangulate_contour_zigzag(*M, low, high, true);
-	    triangulate_contour_zigzag(*M, low+offset, high+offset, false);
-	}
-
-        update_caches(M);
-
-	return M;
+	update_caches(result);
+	return result;
     }
 
     std::shared_ptr<Mesh> Builder::cylinder(
@@ -259,12 +218,14 @@ namespace CSG {
     ) {
         index_t nu = get_fragments_from_r(std::max(r1,r2));
 
-        double z1 = center ? -h/2.0 : 0.0;
-        double z2 = center ?  h/2.0 : h;
+	double r[2] = { r1, r2 };
 
-	std::shared_ptr<Mesh> M = std::make_shared<Mesh>();
+        double z[2] = {
+	    center ? -h/2.0 : 0.0,
+	    center ?  h/2.0 : h
+	};
 
-	M->set_dimension(3);
+	std::shared_ptr<Mesh> result;
 
         if(r1 < 0.0 || r2 < 0.0) {
 	    if(warnings_) {
@@ -272,60 +233,162 @@ namespace CSG {
 		    << "cylinder with negative radius (returning empty shape)"
 		    << std::endl;
 	    }
-            return M;
+            return result;
         }
 
-        if(r1 == 0.0) {
-            std::swap(r1,r2);
-            std::swap(z1,z2);
+        if(r[0] == 0.0) {
+            std::swap(r[0],r[1]);
+            std::swap(z[0],z[1]);
         }
 
-        for(index_t u=0; u<nu; ++u) {
-            double theta = double(u)*2.0*M_PI/double(nu);
-            double ctheta = cos(theta);
-            double stheta = sin(theta);
-            double x = ctheta*r1;
-            double y = stheta*r1;
-            M->create_vertex(vec3(x,y,z1));
-        }
+	result = circle(1.0, nu);
+	sweep(
+	    result, 2,
+	    [&](index_t u, index_t v)->vec3 {
+		vec3 p = result->point_3d(u);
+		return vec3(
+		    r[v]*p.x, r[v]*p.y, z[v]
+		);
+	    },
+	    (r[1] == 0.0) ? SWEEP_CAPPING_IS_APEX : SWEEP_DEFAULTS
+	);
 
-        if(r2 == 0.0) {
-            M->create_vertex(vec3(0.0, 0.0, z2));
-        } else {
-            for(index_t u=0; u<nu; ++u) {
-                double theta = double(u)*2.0*M_PI/double(nu);
-                double ctheta = cos(theta);
-                double stheta = sin(theta);
-                double x = ctheta*r2;
-                double y = stheta*r2;
-                M->create_vertex(vec3(x,y,z2));
-            }
-        }
+	update_caches(result);
+	return result;
+    }
 
-        // Capping
-	triangulate_contour_zigzag(*M,0,nu-1,true);
-	if(r2 != 0.0) {
-	    triangulate_contour_zigzag(*M,nu,2*nu-1,false);
+    void Builder::sweep(
+	std::shared_ptr<Mesh> M,
+	index_t nv,
+	std::function<vec3(index_t u, index_t v)> sweep_path,
+	SweepFlags flags
+    ) {
+	csg_assert(M->dimension() == 2);
+	index_t nu = M->nb_vertices();
+
+	index_t total_nb_vertices;
+	switch(flags) {
+	case SWEEP_DEFAULTS: {
+	    total_nb_vertices = nu*nv;
+	} break;
+	case SWEEP_CAPPING_IS_APEX: {
+	    total_nb_vertices = nu*(nv-1)+1;
+	} break;
+	case SWEEP_V_IS_CYCLIC: {
+	    total_nb_vertices = nu*(nv-1);
+	    M->remove_all_triangles();
+	} break;
 	}
 
-        // Walls
+	index_t nt0 = M->nb_triangles();
+
+	M->set_dimension(3);
+	M->create_vertices(total_nb_vertices - nu);
+
+	// Do not touch first slice for now, because it
+	// may be used by sweep_path (as the origin of paths)
+	for(index_t v=1; v<nv-1; ++v) {
+	    for(index_t u=0; u<nu; ++u) {
+		M->point_3d(v*nu+u) = sweep_path(u,v);
+	    }
+	}
+
+	// Particular case: last slice
+	switch(flags) {
+	case SWEEP_DEFAULTS:
+	    for(index_t u=0; u<nu; ++u) {
+		M->point_3d((nv-1)*nu+u) = sweep_path(u,nv-1);
+	    }
+	    break;
+	case SWEEP_CAPPING_IS_APEX:
+	    M->point_3d((nv-1)*nu) = sweep_path(0,nv-1);
+	    break;
+	case SWEEP_V_IS_CYCLIC:
+	    // Nothing to do, last slice is same as first slice
+	    break;
+	}
+
+        // Now map first slice
         for(index_t u=0; u<nu; ++u) {
-            if(r2 != 0.0) {
-                index_t v00 = u;
-                index_t v01 = v00 + nu;
-                index_t v10 = (u+1)%nu;
-                index_t v11 = v10 + nu;
-                M->create_triangle(v00, v11, v01);
-                M->create_triangle(v00, v10, v11);
-            } else {
-                M->create_triangle(u, (u+1)%nu, nu);
-            }
-        }
+	    M->point_3d(u) = sweep_path(u,0);
+	}
 
-	update_caches(M);
+	// generate walls
+	for(index_t v=0; v+2 < nv; ++v) {
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = (v+1) * nu + M->edge_vertex(e,0) ;
+		index_t vx4 = (v+1) * nu + M->edge_vertex(e,1) ;
+		M->create_triangle(vx1, vx2, vx3);
+		M->create_triangle(vx3, vx2, vx4);
+	    }
+	}
 
-	return M;
+	// generate walls (last "brick" row)
+	switch(flags) {
+	case SWEEP_DEFAULTS: {
+	    index_t v = nv-2;
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = (v+1) * nu + M->edge_vertex(e,0) ;
+		index_t vx4 = (v+1) * nu + M->edge_vertex(e,1) ;
+		M->create_triangle(vx1, vx2, vx3);
+		M->create_triangle(vx3, vx2, vx4);
+	    }
+	} break;
+	case SWEEP_CAPPING_IS_APEX: {
+	    index_t v = nv-2;
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = nu * (nv-1);
+		M->create_triangle(vx1, vx2, vx3);
+	    }
+	} break;
+	case SWEEP_V_IS_CYCLIC: {
+	    index_t v = nv-2;
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = M->edge_vertex(e,0) ;
+		index_t vx4 = M->edge_vertex(e,1) ;
+		M->create_triangle(vx1, vx2, vx3);
+		M->create_triangle(vx3, vx2, vx4);
+	    }
+	} break;
+	}
+
+	// generate capping
+	if(flags == SWEEP_DEFAULTS) {
+	    index_t nt1 = M->nb_triangles();
+	    index_t v_ofs = nu*(nv-1);
+	    M->create_triangles(nt0);
+	    for(index_t t=0; t<nt0; ++t) {
+		M->set_triangle(
+		    t+nt1,
+		    v_ofs + M->triangle_vertex(t,0),
+		    v_ofs + M->triangle_vertex(t,1),
+		    v_ofs + M->triangle_vertex(t,2)
+		);
+	    }
+	}
+
+	if(flags == SWEEP_DEFAULTS || flags == SWEEP_CAPPING_IS_APEX) {
+	    for(index_t t=0; t<nt0; ++t) {
+		M->set_triangle(
+		    t,
+		    M->triangle_vertex(t,2),
+		    M->triangle_vertex(t,1),
+		    M->triangle_vertex(t,0)
+		);
+	    }
+	}
+
+	M->remove_all_edges();
     }
+
 
     std::shared_ptr<Mesh> Builder::import(
         const std::filesystem::path& filename, const std::string& layer,

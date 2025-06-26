@@ -144,6 +144,9 @@ namespace CSG {
 
     void set_triangle(index_t t, index_t v1, index_t v2, index_t v3) {
 	csg_debug_assert(t < nb_triangles());
+	csg_debug_assert(v1 < nb_vertices());
+	csg_debug_assert(v2 < nb_vertices());
+	csg_debug_assert(v3 < nb_vertices());
 	triangles_[3*t] = v1;
 	triangles_[3*t+1] = v2;
 	triangles_[3*t+2] = v3;
@@ -205,12 +208,12 @@ namespace CSG {
     }
 
     index_t edge_operand_bits(index_t e) {
-	csg_debug_assert(t < nb_edges());
+	csg_debug_assert(e < nb_edges());
 	return edges_operands_bits_[e];
     }
 
     void set_edge_operand_bits(index_t e, index_t operand_bits) {
-	csg_debug_assert(t < nb_edges());
+	csg_debug_assert(e < nb_edges());
 	edges_operands_bits_[e] = operand_bits;
     }
 

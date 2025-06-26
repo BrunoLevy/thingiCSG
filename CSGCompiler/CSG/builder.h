@@ -34,7 +34,7 @@ namespace CSG {
 	vec2 size = vec2(1.0,1.0), bool center=true
     );
 
-    virtual std::shared_ptr<Mesh> circle(double r=1.0);
+    virtual std::shared_ptr<Mesh> circle(double r=1.0, index_t nu=0);
 
     virtual std::shared_ptr<Mesh> cube(
 	vec3 size = vec3(1.0, 1.0, 1.0), bool center=true
@@ -313,6 +313,34 @@ namespace CSG {
      */
     virtual void update_caches(std::shared_ptr<Mesh> mesh);
 
+
+    enum SweepFlags {
+	SWEEP_DEFAULTS,
+	SWEEP_CAPPING_IS_APEX,
+	SWEEP_V_IS_CYCLIC
+    };
+
+    /**
+     * \brief The generalized sweeping operation
+     * \param[in,out] mesh on entry, a 2D mesh. On exit, a 3D mesh.
+     * \param[in] nv number of sweeping steps. Minimum is 2.
+     * \param[in] sweep_path a function that maps u,v indices to 3D
+     *  points, where u is the index of a initial 2D vertex and v
+     *  in [0..nv-1] the sweeping step.
+     * \param[in] flags one of:
+     *   - SWEEP_DEFAULT standard sweeping, generate second capping by
+     *     copying first one
+     *   - SWEEP_CAPPING_IS_APEX if last sweeping step degenerates to a
+     *     single point
+     *   - SWEEP_V_IS_CYCLIC if no cappings should be generated and last
+     *     sweeping step corresponds to first one
+     */
+    virtual void sweep(
+	std::shared_ptr<Mesh> mesh,
+	index_t nv,
+	std::function<vec3(index_t, index_t)> sweep_path,
+	SweepFlags flags = SWEEP_DEFAULTS
+    );
 
     /**
      * \brief Apply a CSG operation to a mesh
