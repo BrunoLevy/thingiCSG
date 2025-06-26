@@ -8,6 +8,11 @@
 
 namespace CSG {
 
+    /**
+     * \brief A Scope corresponds to a set of primitive between curly braces
+     *  in OpenSCAD, arguments of an operation. It is implemented as a vector
+     *  of meshes.
+     */
     typedef vector<std::shared_ptr<Mesh>> Scope;
 
     /**
@@ -34,6 +39,10 @@ namespace CSG {
 	vec2 size = vec2(1.0,1.0), bool center=true
     );
 
+    /**
+     * \param[in] nu number of fragments. If left unspecified, then it
+     *   is deduced from radius and/or $fn variable.
+     */
     virtual std::shared_ptr<Mesh> circle(double r=1.0, index_t nu=0);
 
     virtual std::shared_ptr<Mesh> cube(
@@ -145,7 +154,6 @@ namespace CSG {
         index_t slices = 0,
         double twist = 0.0
     );
-
 
     /**
      * \brief Computes a 3D extrusion from a 2D shape
@@ -269,7 +277,6 @@ namespace CSG {
 	file_path_.pop_back();
     }
 
-
     /**** misc ****/
 
     protected:
@@ -304,7 +311,6 @@ namespace CSG {
      */
     index_t get_fragments_from_r(double r, double twist = 360.0);
 
-
     /**
      * \brief Derived classes may override this function and compute
      *  some cached information, e.g. bounding boxes, stored in the
@@ -313,7 +319,9 @@ namespace CSG {
      */
     virtual void update_caches(std::shared_ptr<Mesh> mesh);
 
-
+    /**
+     * \brief Symbolic constants for sweep()
+     */
     enum SweepFlags {
 	SWEEP_CAP,
 	SWEEP_POLE,
@@ -366,7 +374,6 @@ namespace CSG {
     virtual void triangulate(
         std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
     );
-
 
     protected:
     index_t max_arity_;

@@ -2,9 +2,11 @@
 #include <CSG/mesh_io.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
 
-// 2D shapes are represented with:
+// 2D shapes are represented by a Mesh with:
 // - a set of edges
 // - triangulation of the interior, with no internal vertex
+
+// rotate_exclude.scad, orientation problems
 
 namespace CSG {
 
@@ -236,6 +238,8 @@ namespace CSG {
             return result;
         }
 
+	// If first side is a pole, then flip sides (sweep() supposes that the
+	// pole is always on the second side).
         if(r[0] == 0.0) {
             std::swap(r[0],r[1]);
             std::swap(z[0],z[1]);
@@ -311,7 +315,62 @@ namespace CSG {
 	const std::string& language,
 	const std::string& script
     ) {
-	return std::make_shared<Mesh>();
+        Logger::out("CSG") << "Handling text() with OpenSCAD" << std::endl;
+
+	if(text == "") {
+	    std::shared_ptr<Mesh> result = std::make_shared<Mesh>();
+	    return result;
+	}
+
+        // Generate a simple linear extrusion, so that we can convert to STL
+        // (without it OpenSCAD refuses to create a STL with 2D content)
+        std::ofstream tmp("tmpscad.scad");
+        tmp << "group() {" << std::endl;
+        tmp << "   linear_extrude(height=1.0) {" << std::endl;
+        tmp << "      text(" << std::endl;
+	tmp << "             \"" << text << "\"," << std::endl;
+        tmp << "             size=" << size << "," << std::endl;
+	if(font != "") {
+	    tmp << "             font=\"" << font << "\"," << std::endl;
+	}
+	tmp << "             halign=\"" << halign << "\"," << std::endl;
+	tmp << "             valign=\"" << valign << "\"," << std::endl;
+	tmp << "             spacing=" << spacing << "," << std::endl;
+	tmp << "             direction=\"" << direction << "\"," << std::endl;
+	tmp << "             language=\"" << language<< "\"," << std::endl;
+	tmp << "             script=\"" << script << "\"" << std::endl;
+        tmp << "      );" << std::endl;
+        tmp << "   }" << std::endl;
+        tmp << "}" << std::endl;
+
+        // Start OpenSCAD and generate output as STL
+        if(system("openscad tmpscad.scad -o tmpscad.stl")) {
+            Logger::warn("CSG") << "Error while running openscad " << std::endl;
+            Logger::warn("CSG") << "(used to generate text) " << std::endl;
+        }
+
+        // Load STL using our own loader
+	std::shared_ptr<Mesh> result = import("tmpscad.stl");
+
+
+	std::filesystem::remove("tmpscad.scad");
+	std::filesystem::remove("tmpscad.stl");
+
+        // Delete the facets that are coming from the linear extrusion
+        vector<index_t> delete_f(result->nb_triangles(), 0);
+        for(index_t t=0; t<result->nb_triangles(); ++t) {
+            for(index_t lv=0; lv<3; ++lv) {
+                index_t v = result->triangle_vertex(t,lv);
+                if(result->point(v).z != 0.0) {
+                    delete_f[t] = 1;
+                }
+            }
+        }
+        result->remove_triangles(delete_f);
+        result->set_dimension(2);
+	result->compute_borders();
+	triangulate(result,"union");
+        return result;
     }
 
     std::shared_ptr<Mesh> Builder::multmatrix(
@@ -332,14 +391,7 @@ namespace CSG {
 	}
 	// Preserve normals orientations if transform is left-handed
 	if(determinant(M) < 0.0) {
-	    for(index_t t=0; t<result->nb_triangles(); ++t) {
-		result->set_triangle(
-		    t,
-		    result->triangle_vertex(t,2),
-		    result->triangle_vertex(t,1),
-		    result->triangle_vertex(t,0)
-		);
-	    }
+	    result->flip();
 	}
 	update_caches(result);
 	return result;
@@ -889,12 +941,7 @@ namespace CSG {
 	// flip triangles that were existing to generate first capping
 	if(flags == SWEEP_CAP || flags == SWEEP_POLE) {
 	    for(index_t t=0; t<nt0; ++t) {
-		M->set_triangle(
-		    t,
-		    M->triangle_vertex(t,2),
-		    M->triangle_vertex(t,1),
-		    M->triangle_vertex(t,0)
-		);
+		M->flip_triangle(t);
 	    }
 	}
 

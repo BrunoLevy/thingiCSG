@@ -389,4 +389,13 @@ namespace CSG {
 	remove_triangles(remove_triangle);
     }
 
+    void Mesh::flip() {
+	for(index_t e=0; e<nb_edges(); ++e) {
+	    flip_edge(e);
+	}
+	for(index_t t=0; t<nb_triangles(); ++t) {
+	    flip_triangle(t);
+	}
+    }
+
 }

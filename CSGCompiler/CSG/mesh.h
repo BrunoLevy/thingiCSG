@@ -164,6 +164,14 @@ namespace CSG {
 
     void create_polygon(vector<index_t> vertices);
 
+    void flip_triangle(index_t t) {
+	csg_debug_assert(t < nb_triangles());
+	set_triangle(
+	    t,
+	    triangle_vertex(t,2), triangle_vertex(t,1), triangle_vertex(t,0)
+	);
+    }
+
     /***************************/
 
     index_t nb_edges() const {
@@ -217,9 +225,15 @@ namespace CSG {
 	edges_operands_bits_[e] = operand_bits;
     }
 
+    void flip_edge(index_t e) {
+	csg_debug_assert(e < nb_edges());
+	set_edge(e, edge_vertex(e,1), edge_vertex(e,0));
+    }
+
     /***************************/
 
     void append_mesh(Mesh& M, index_t operand);
+
     void get_bbox(vec3& min, vec3& max) const;
 
     /**
@@ -266,6 +280,9 @@ namespace CSG {
      * \brief Replaces all edges with border edges
      */
     void compute_borders();
+
+
+    void flip();
 
     /***************************/
 
