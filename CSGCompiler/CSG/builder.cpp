@@ -50,13 +50,13 @@ namespace CSG {
         M->create_vertex(vec2(x1,y2));
         M->create_vertex(vec2(x2,y2));
 
-        M->create_triangle(0,3,1);
-        M->create_triangle(0,2,3);
+        M->create_triangle(0,1,3);
+        M->create_triangle(0,3,2);
 
 	M->create_edge(0,1);
-	M->create_edge(2,3);
-	M->create_edge(0,2);
 	M->create_edge(1,3);
+	M->create_edge(3,2);
+	M->create_edge(2,0);
 
         update_caches(M);
 
@@ -690,6 +690,10 @@ namespace CSG {
 
 	// there may be duplicated points around the poles
 	result->merge_duplicated_points();
+
+	if(angle > 0) {
+	    result->flip();
+	}
 
 	update_caches(result);
 	return result;
