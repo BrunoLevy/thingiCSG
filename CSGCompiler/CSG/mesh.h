@@ -279,6 +279,10 @@ namespace CSG {
 
     /***************************/
 
+    protected:
+    void remove_degenerate_edges();
+    void remove_degenerate_triangles();
+
     private:
     vector<double> points_;
     vector<index_t> edges_;

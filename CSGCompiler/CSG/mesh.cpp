@@ -312,12 +312,19 @@ namespace CSG {
 	}
 
 	// remove duplicated vertices
+	index_t nb_to_remove = 0;
 	vector<index_t>& to_remove = old2new;
 	for(index_t i=0; i<to_remove.size(); ++i) {
 	    to_remove[i] = (to_remove[i] == i) ? 0 : 1;
+	    nb_to_remove += to_remove[i];
 	}
 
 	remove_vertices(to_remove);
+
+	if(nb_to_remove != 0) {
+	    remove_degenerate_edges();
+	    remove_degenerate_triangles();
+	}
     }
 
 
@@ -361,7 +368,25 @@ namespace CSG {
 	    }
 	    b = e;
 	}
+    }
 
+    void Mesh::remove_degenerate_edges() {
+	vector<index_t> remove_edge(nb_edges(), 0);
+	for(index_t e=0; e<nb_edges(); ++e) {
+	    remove_edge[e] = (edge_vertex(e,0) == edge_vertex(e,1));
+	}
+	remove_edges(remove_edge);
+    }
+
+    void Mesh::remove_degenerate_triangles() {
+	vector<index_t> remove_triangle(nb_triangles(), 0);
+	for(index_t t=0; t<nb_triangles(); ++t) {
+	    index_t v1 = triangle_vertex(t,0);
+	    index_t v2 = triangle_vertex(t,1);
+	    index_t v3 = triangle_vertex(t,2);
+	    remove_triangle[t] = ((v1 == v2) || (v2 == v3) || (v3 == v1));
+	}
+	remove_triangles(remove_triangle);
     }
 
 }

@@ -592,20 +592,26 @@ namespace CSG {
             result->remove_isolated_vertices();
         }
 
-	// remove edges aligned with rotation axis
+	// Remove edges that are co-linear with rotation axis.
+	// (as well as vertices dangling on rotation axis).
 	{
+	    index_t nb_edges_to_remove;
 	    vector<index_t> remove_edges(result->nb_edges(),0);
 	    for(index_t e=0; e<result->nb_edges(); ++e) {
                 index_t v1 = result->edge_vertex(e,0);
                 index_t v2 = result->edge_vertex(e,1);
 		if(
-		    result->point_2d(v1).x == 0.0 &&
-		    result->point_2d(v2).x == 0.0
+		    (result->point_2d(v1).x == 0.0) &&
+		    (result->point_2d(v2).x == 0.0)
 		) {
 		    remove_edges[e] = 1;
+		    ++nb_edges_to_remove;
 		}
 	    }
 	    result->remove_edges(remove_edges);
+	    if(nb_edges_to_remove != 0) {
+		result->remove_isolated_vertices();
+	    }
 	}
 
 
@@ -629,6 +635,10 @@ namespace CSG {
 	    },
 	    (angle == 360.0) ? SWEEP_V_IS_PERIODIC : SWEEP_DEFAULTS
 	);
+
+	// there may be duplicated points around the poles
+	result->merge_duplicated_points();
+
 	update_caches(result);
 	return result;
     }
@@ -894,7 +904,10 @@ namespace CSG {
 	std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
     ) {
 	if(mesh->dimension() == 2) {
-	    triangulate(mesh, boolean_expr);
+	    triangulate(mesh, boolean_expr);  // has all intersections inside
+	    mesh->remove_all_triangles();     // now keep edge borders only
+	    mesh->remove_isolated_vertices(); // then remove internal vertices
+	    triangulate(mesh, "union");       // re-triangulate border edges
 	    update_caches(mesh);
 	} else {
 	    // Insert your own mesh boolean operation code here !
