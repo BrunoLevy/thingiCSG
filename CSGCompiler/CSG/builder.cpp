@@ -2,10 +2,6 @@
 #include <CSG/mesh_io.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
 
-// 2D shapes are represented by a Mesh with:
-// - a set of edges
-// - triangulation of the interior, with no internal vertex
-
 namespace CSG {
 
     Builder::Builder() {
@@ -463,7 +459,7 @@ namespace CSG {
             return scope[0];
         }
 
-	// TODO: how inersection is supposed to behave with more than 2
+	// TODO: how intersection is supposed to behave with more than 2
 	// objects in OpenSCAD ?
 
         // Boolean operations can handle no more than max_arity_ operands.
@@ -482,8 +478,8 @@ namespace CSG {
             }
 
             Scope scope3;
-            scope3.emplace_back(union_instr(scope1));
-            scope3.emplace_back(union_instr(scope2));
+            scope3.emplace_back(intersection(scope1));
+            scope3.emplace_back(intersection(scope2));
             return intersection(scope3);
         }
 
@@ -852,13 +848,13 @@ namespace CSG {
 	std::shared_ptr<Mesh> M,
 	index_t nv,
 	std::function<vec3(index_t u, index_t v)> sweep_path,
-	SweepFlags flags
+	SweepCapping capping
     ) {
 	M->set_dimension(2);
 	index_t nu = M->nb_vertices();
 
 	index_t total_nb_vertices;
-	switch(flags) {
+	switch(capping) {
 	case SWEEP_CAP: {
 	    total_nb_vertices = nu*nv;
 	} break;
@@ -885,7 +881,7 @@ namespace CSG {
 	}
 
 	// Particular case: last slice
-	switch(flags) {
+	switch(capping) {
 	case SWEEP_CAP:
 	    for(index_t u=0; u<nu; ++u) {
 		M->point_3d((nv-1)*nu+u) = sweep_path(u,nv-1);
@@ -917,7 +913,7 @@ namespace CSG {
 	}
 
 	// generate walls (last "brick" row)
-	switch(flags) {
+	switch(capping) {
 	case SWEEP_CAP: {
 	    index_t v = nv-2;
 	    for(index_t e=0; e < M->nb_edges(); ++e) {
@@ -952,7 +948,7 @@ namespace CSG {
 	}
 
 	// generate second capping
-	if(flags == SWEEP_CAP) {
+	if(capping == SWEEP_CAP) {
 	    index_t nt1 = M->nb_triangles();
 	    index_t v_ofs = nu*(nv-1);
 	    M->create_triangles(nt0);
@@ -967,7 +963,7 @@ namespace CSG {
 	}
 
 	// flip triangles that were existing to generate first capping
-	if(flags == SWEEP_CAP || flags == SWEEP_POLE) {
+	if(capping == SWEEP_CAP || capping == SWEEP_POLE) {
 	    for(index_t t=0; t<nt0; ++t) {
 		M->flip_triangle(t);
 	    }

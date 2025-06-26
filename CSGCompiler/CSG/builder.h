@@ -322,7 +322,7 @@ namespace CSG {
     /**
      * \brief Symbolic constants for sweep()
      */
-    enum SweepFlags {
+    enum SweepCapping {
 	SWEEP_CAP,
 	SWEEP_POLE,
 	SWEEP_PERIODIC
@@ -339,7 +339,7 @@ namespace CSG {
      *  in [0..nv-1] the sweeping step. One can use the point at vertex
      *  u to evaluate the path (it will not be overwritten before calling
      *  sweep_path()). Note that u vertices are not necessarily ordered.
-     * \param[in] flags one of:
+     * \param[in] capping one of:
      *   - SWEEP_CAP standard sweeping, generate second capping by
      *     copying first one
      *   - SWEEP_POLE if last sweeping step degenerates to a
@@ -351,7 +351,7 @@ namespace CSG {
 	std::shared_ptr<Mesh> mesh,
 	index_t nv,
 	std::function<vec3(index_t, index_t)> sweep_path,
-	SweepFlags flags = SWEEP_CAP
+	SweepCapping capping = SWEEP_CAP
     );
 
     /**
