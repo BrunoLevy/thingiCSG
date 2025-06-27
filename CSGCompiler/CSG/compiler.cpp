@@ -412,6 +412,7 @@ namespace CSG {
             );
         }
 
+        builder_->triangulate(M,"union");
         builder_->update_caches(M);
 
         return M;

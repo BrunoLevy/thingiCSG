@@ -276,6 +276,23 @@ namespace CSG {
 	triangles_operands_bits_.clear();
     }
 
+    void Mesh::keep_z0_only() {
+	vector<index_t> remove_triangle(nb_triangles(),0);
+	for(index_t t=0; t<nb_triangles(); ++t) {
+	    for(index_t lv=0; lv<3; ++lv) {
+		const vec3& p = point_3d(triangle_vertex(t,lv));
+		if(p.z != 0.0) {
+		    remove_triangle[t] = 1;
+		    break;
+		}
+	    }
+	}
+	remove_triangles(remove_triangle);
+	remove_isolated_vertices();
+	set_dimension(2);
+    }
+
+
     void Mesh::merge_duplicated_points() {
 	vector<index_t> sorted(nb_vertices());
 	for(index_t i=0; i<nb_vertices(); ++i) {

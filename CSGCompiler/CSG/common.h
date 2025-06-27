@@ -122,31 +122,12 @@ namespace CSG {
     namespace String {
 
         /**
-         * \brief Creates a one char string
-         * \param[in] c the character to convert to a string
-         * \return a string that contains characater \p c
-         */
-        inline std::string char_to_string(char c) {
-            char s[2];
-            s[0] = c;
-            s[1] = '\0';
-            return std::string(s);
-        }
-
-
-        /**
          * \brief Converts a typed value to a string
          * \param[in] value the typed value to convert
          * \return a string that contain the stringified form of the value
          */
         template <class T> inline std::string to_string(const T& value) {
-            std::ostringstream out;
-            // Makes sure that double-precision number are displayed
-            // with a sufficient number of digits. This is important
-            // to avoid losing precision when using ASCII files.
-            out << std::setprecision(17);
-            out << value;
-            return out.str();
+	   return std::to_string(value);
         }
 
         /**

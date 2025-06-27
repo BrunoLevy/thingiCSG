@@ -269,6 +269,11 @@ namespace CSG {
 
     void remove_all_triangles();
 
+    /**
+     * \brief keep only triangles and vertices embedded in the z=0 plane, and
+     *  make the mesh 2D.
+     */
+    void keep_z0_only();
 
     /**
      * \brief Merges points that have exactly the same coordinates
