@@ -1,3 +1,13 @@
+
+// OpenSCAD extrusion: src/geometry/GeometryEvaluator.c
+// To be understood:
+// - how to evaluate number of steps and number of fragments
+// - resample mode
+//
+// Extrusion walls: pick shortest diagonal
+// splitOutlineByFs(), splitOutlineByFn()
+// extrudePolygon()
+
 #include <CSG/builder.h>
 #include <CSG/mesh_io.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
@@ -375,17 +385,7 @@ namespace CSG {
 	std::filesystem::remove("tmpscad.stl");
 
         // Delete the facets that are coming from the linear extrusion
-        vector<index_t> delete_f(result->nb_triangles(), 0);
-        for(index_t t=0; t<result->nb_triangles(); ++t) {
-            for(index_t lv=0; lv<3; ++lv) {
-                index_t v = result->triangle_vertex(t,lv);
-                if(result->point(v).z != 0.0) {
-                    delete_f[t] = 1;
-                }
-            }
-        }
-        result->remove_triangles(delete_f);
-        result->set_dimension(2);
+	result->keep_z0_only();
 	result->compute_borders();
 	triangulate(result,"union");
 	finalize_mesh(result);
@@ -460,9 +460,6 @@ namespace CSG {
         if(scope.size() == 1) {
             return scope[0];
         }
-
-	// TODO: how intersection is supposed to behave with more than 2
-	// objects in OpenSCAD ?
 
         // Boolean operations can handle no more than max_arity_ operands.
         // For a intersection with more than max_arity_ operands,
@@ -739,10 +736,8 @@ namespace CSG {
             // We reuse the intersection() function as follows:
 	    // Compute intersection with (enlarged) half bbox and
 	    // keep z=0 facets only.
-
 	    vec3 pmin,pmax;
 	    result->get_bbox(pmin,pmax);
-
 	    std::shared_ptr<Mesh> C = cube(3.0*(pmax-pmin), false);
             for(index_t v=0; v<C->nb_vertices(); ++v) {
 		C->point_3d(v) += vec3(
@@ -808,28 +803,23 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::append(const Scope& scope) {
-
 	if(scope.size() == 0) {
 	    return std::make_shared<Mesh>();
 	}
-
         if(scope.size() == 1) {
             return scope[0];
         }
 	std::shared_ptr<Mesh> result = std::make_shared<Mesh>();
-
 	index_t dim = 2;
         for(index_t i=0; i<scope.size(); ++i) {
 	    dim = std::max(dim, scope[i]->dimension());
 	}
         result->set_dimension(dim);
-
         for(index_t i=0; i<scope.size(); ++i) {
 	    if(scope[i]->nb_vertices() > 0) {
 		result->append_mesh(*scope[i], (1u << i));
 	    }
         }
-
 	return result;
     }
 
@@ -956,7 +946,7 @@ namespace CSG {
 	M->set_dimension(3);
 	M->create_vertices(total_nb_vertices - nu);
 
-	// Do not touch first slice for now, because it
+	// Start from 1: do not touch first slice for now, because it
 	// may be used by sweep_path (as the origin of paths)
 	for(index_t v=1; v<nv-1; ++v) {
 	    for(index_t u=0; u<nu; ++u) {
@@ -984,30 +974,41 @@ namespace CSG {
 	    M->point_3d(u) = sweep_path(u,0);
 	}
 
-	// generate walls
-	for(index_t v=0; v+2 < nv; ++v) {
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = (v+1) * nu + M->edge_vertex(e,0) ;
-		index_t vx4 = (v+1) * nu + M->edge_vertex(e,1) ;
-		M->create_triangle(vx1, vx2, vx3);
-		M->create_triangle(vx3, vx2, vx4);
+	// creates one row of "brick" for the walls
+	auto create_brick_row = [&](index_t v, bool periodic=false) {
+	    index_t v1 = v;
+	    index_t v2 = v1+1;
+	    if(periodic && v2 == nv-1) {
+		v2 = 0;
 	    }
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v1 * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v1 * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = v2 * nu + M->edge_vertex(e,0) ;
+		index_t vx4 = v2 * nu + M->edge_vertex(e,1) ;
+		const vec3& p1 = M->point_3d(vx1);
+		const vec3& p2 = M->point_3d(vx2);
+		const vec3& p3 = M->point_3d(vx3);
+		const vec3& p4 = M->point_3d(vx4);
+		if(length(p3-p2) < length(p4-p1)) {
+		    M->create_triangle(vx1, vx2, vx3);
+		    M->create_triangle(vx3, vx2, vx4);
+		} else {
+		    M->create_triangle(vx1, vx2, vx4);
+		    M->create_triangle(vx1, vx4, vx3);
+		}
+	    }
+	};
+
+	// generate walls (all brick rows except last one)
+	for(index_t v=0; v+2 < nv; ++v) {
+	    create_brick_row(v);
 	}
 
-	// generate walls (last "brick" row)
+	// generate walls (last "brick" row, depends on capping mode)
 	switch(capping) {
 	case SWEEP_CAP: {
-	    index_t v = nv-2;
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = (v+1) * nu + M->edge_vertex(e,0) ;
-		index_t vx4 = (v+1) * nu + M->edge_vertex(e,1) ;
-		M->create_triangle(vx1, vx2, vx3);
-		M->create_triangle(vx3, vx2, vx4);
-	    }
+	    create_brick_row(nv-2);
 	} break;
 	case SWEEP_POLE: {
 	    index_t v = nv-2;
@@ -1019,15 +1020,7 @@ namespace CSG {
 	    }
 	} break;
 	case SWEEP_PERIODIC: {
-	    index_t v = nv-2;
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = M->edge_vertex(e,0) ;
-		index_t vx4 = M->edge_vertex(e,1) ;
-		M->create_triangle(vx1, vx2, vx3);
-		M->create_triangle(vx3, vx2, vx4);
-	    }
+	    create_brick_row(nv-2, true); // periodic
 	} break;
 	}
 
@@ -1046,7 +1039,7 @@ namespace CSG {
 	    }
 	}
 
-	// flip triangles that were existing to generate first capping
+	// flip initial triangles to generate first capping
 	if(capping == SWEEP_CAP || capping == SWEEP_POLE) {
 	    for(index_t t=0; t<nt0; ++t) {
 		M->flip_triangle(t);

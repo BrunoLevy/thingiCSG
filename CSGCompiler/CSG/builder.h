@@ -356,9 +356,16 @@ namespace CSG {
 
     /**
      * \brief Apply a CSG operation to a mesh
-     * \details Default implementation does nothing, to be overriden by user.
+     * \details Default implementation works in 2D (based on triangulate())
+     *   and does nothing in 3D (to be overriden by user).
      * \param[in,out] the mesh
      * \param[in] boolean_expr the operation to be applied
+     *   - "union"
+     *   - "intersection"
+     *   - a general boolean expression, where:
+     *      - variables are x0 ... x31 (they correspond to input operands)
+     *      - operators are +,-,*
+     *      - there can be parentheses
      */
     virtual void do_CSG(
 	std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
@@ -366,10 +373,25 @@ namespace CSG {
 
     /**
      * \brief Triangulates a 2D mesh.
+     * \details Computes a constrained Delaunay triangulation from the edges
+     *  of the mesh, then classifies the triangles using a boolean expression.
+     *  Each edge has an "operand bit" indicating to which input operand
+     *  it belongs to, set to (1u << operand_id).
      * \param[in,out] mesh the input is a set of vertices and edges.
      *   The output has a set of triangles inside the polygons defined by
      *   the edges.
-     * \param[in] boolean_expr the operation to be applied
+     * \param[in] boolean_expr the operation to be applied, can be one of
+     *   - "union"
+     *   - "intersection"
+     *   - a general boolean expression, where:
+     *      - variables are x0 ... x31 (they correspond to input operands)
+     *      - operators are +,-,*
+     *      - there can be parentheses
+     *   - "union_cnstr_operand_bits_is_operand_id", same as "union"
+     *     but edges operand bits are set to
+     *     operand_id (instead of 1u << operand_id). This allows for an
+     *     unlimited number of operands (as opposed to operand bits where
+     *     it is limited to 32). It is used to implement projection(cut=false).
      */
     virtual void triangulate(
         std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
