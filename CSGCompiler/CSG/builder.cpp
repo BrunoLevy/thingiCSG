@@ -613,9 +613,7 @@ namespace CSG {
 	std::filesystem::remove("tmpscad.stl");
 
         // Delete the facets that are coming from the linear extrusion
-	result->keep_z0_only();
-	result->compute_borders();
-	triangulate(result,"union");
+	keep_z0_only(result);
 	finalize_mesh(result);
         return result;
     }
@@ -974,9 +972,7 @@ namespace CSG {
             scope2.push_back(result);
             scope2.push_back(C);
             result = difference(scope2);
-	    result->keep_z0_only();
-	    result->compute_borders();
-	    triangulate(result, "union");
+	    keep_z0_only(result);
         } else {
 	    // Union of all triangles projected in 2D. We project only
 	    // half of them (since we have a closed shape). We select
@@ -1137,7 +1133,7 @@ namespace CSG {
 
 
     void Builder::sweep(
-	std::shared_ptr<Mesh> M,
+	std::shared_ptr<Mesh>& M,
 	index_t nv,
 	std::function<vec3(index_t u, index_t v)> sweep_path,
 	SweepCapping capping
@@ -1268,7 +1264,7 @@ namespace CSG {
     }
 
     void Builder::do_CSG(
-	std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
+	std::shared_ptr<Mesh>& mesh, const std::string& boolean_expr
     ) {
 	if(mesh->dimension() == 2) {
 	    triangulate(mesh, boolean_expr);  // has all intersections inside
@@ -1281,7 +1277,7 @@ namespace CSG {
     }
 
     void Builder::triangulate(
-        std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
+        std::shared_ptr<Mesh>& mesh, const std::string& boolean_expr
     ) {
 	csg_assert(mesh->dimension() == 2);
 
@@ -1289,6 +1285,7 @@ namespace CSG {
 	mesh->remove_all_triangles();
 	mesh->remove_isolated_vertices();
 
+	// Do we need to check that ? Probably not (it is caller's job !)
 	bool has_operand_bit = true;
 	for(index_t e=0; e<mesh->nb_edges(); ++e) {
 	    if(mesh->edge_operand_bits(e) == NO_INDEX) {
@@ -1368,7 +1365,25 @@ namespace CSG {
 	}
     }
 
-    void Builder::finalize_mesh(std::shared_ptr<Mesh> M) {
+    void Builder::keep_z0_only(std::shared_ptr<Mesh>& M) {
+	vector<index_t> remove_triangle(M->nb_triangles(),0);
+	for(index_t t=0; t<M->nb_triangles(); ++t) {
+	    for(index_t lv=0; lv<3; ++lv) {
+		const vec3& p = M->point_3d(M->triangle_vertex(t,lv));
+		if(p.z != 0.0) {
+		    remove_triangle[t] = 1;
+		    break;
+		}
+	    }
+	}
+	M->remove_triangles(remove_triangle);
+	M->remove_isolated_vertices();
+	M->compute_borders();
+	M->set_dimension(2);
+	triangulate(M,"union");
+    }
+
+    void Builder::finalize_mesh(std::shared_ptr<Mesh>& M) {
 	csg_argused(M);
     }
 }

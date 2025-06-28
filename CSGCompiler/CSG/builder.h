@@ -306,7 +306,7 @@ namespace CSG {
      *  mesh.
      * \see Mesh::set_cached_information(), Mesh::get_cached_information()
      */
-    virtual void finalize_mesh(std::shared_ptr<Mesh> mesh);
+    virtual void finalize_mesh(std::shared_ptr<Mesh>& mesh);
 
     /**
      * \brief Symbolic constants for sweep()
@@ -339,7 +339,7 @@ namespace CSG {
      *     sweeping step corresponds to first one
      */
     virtual void sweep(
-	std::shared_ptr<Mesh> mesh,
+	std::shared_ptr<Mesh>& mesh,
 	index_t nv,
 	std::function<vec3(index_t, index_t)> sweep_path,
 	SweepCapping capping = SWEEP_CAP
@@ -361,7 +361,7 @@ namespace CSG {
      *      - there can be parentheses
      */
     virtual void do_CSG(
-	std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
+	std::shared_ptr<Mesh>& mesh, const std::string& boolean_expr
     );
 
     /**
@@ -388,8 +388,15 @@ namespace CSG {
      *     it is limited to 32). It is used to implement projection(cut=false).
      */
     virtual void triangulate(
-        std::shared_ptr<Mesh> mesh, const std::string& boolean_expr
+        std::shared_ptr<Mesh>& mesh, const std::string& boolean_expr
     );
+
+    /**
+     * \brief keep only triangles and vertices embedded in the z=0 plane, and
+     *  make the mesh 2D.
+     * \param[in,out] M a shared pointer to the mesh
+     */
+    void keep_z0_only(std::shared_ptr<Mesh>& M);
 
     protected:
     index_t max_arity_;
