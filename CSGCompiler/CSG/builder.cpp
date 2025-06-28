@@ -10,6 +10,7 @@ namespace Calc {
 
     // From openscad/Geometry/Grid.h
     static constexpr double GRID_FINE = 0.00000095367431640625;
+    // This one often misses so I redeclare it here
     static constexpr double M_DEG2RAD = M_PI / 180.0;
 
     int get_fragments_from_r_and_twist(
@@ -1004,7 +1005,10 @@ namespace CSG {
 		    index_t e2 = result->create_edge(v2,v3);
 		    index_t e3 = result->create_edge(v3,v1);
 		    // We are using the "cnstr_operand_bits_is_operand_id"
-		    // of the "union" operation in CDT2d.
+		    // of the "union" operation in CDT2d. It makes it
+		    // possible to compute a union operation with more than
+		    // 32 operands (and here we got one operand per input
+		    // triangle !).
 		    result->set_edge_operand_bits(e1,t);
 		    result->set_edge_operand_bits(e2,t);
 		    result->set_edge_operand_bits(e3,t);
@@ -1285,7 +1289,6 @@ namespace CSG {
 	mesh->remove_all_triangles();
 	mesh->remove_isolated_vertices();
 
-	// Do we need to check that ? Probably not (it is caller's job !)
 	bool has_operand_bit = true;
 	for(index_t e=0; e<mesh->nb_edges(); ++e) {
 	    if(mesh->edge_operand_bits(e) == NO_INDEX) {
@@ -1302,20 +1305,14 @@ namespace CSG {
 
 	vec3 pmin, pmax;
 	mesh->get_bbox(pmin, pmax);
-	double umin = pmin.x;
-	double vmin = pmin.y;
-	double umax = pmax.x;
-	double vmax = pmax.y;
-        double d = std::max(umax-umin, vmax-vmin);
-        d *= 10.0;
-        d = std::max(d, 1.0);
-        umin-=d;
-        vmin-=d;
-        umax+=d;
-        vmax+=d;
+	vec3 D = pmax - pmin;
+	double d = std::max(std::max(D.x,D.y)*10.0, 1.0);
+	D = vec3(d,d,0.0);
+	pmin -= D;
+	pmax += D;
 
 	GEO::ExactCDT2d CDT;
-        CDT.create_enclosing_rectangle(umin, vmin, umax, vmax);
+        CDT.create_enclosing_rectangle(pmin.x, pmin.y, pmax.x, pmax.y);
 
         // In case there are duplicated vertices, keep track of indexing
         vector<index_t> vertex_id(mesh->nb_vertices());

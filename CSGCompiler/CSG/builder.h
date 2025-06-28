@@ -277,9 +277,9 @@ namespace CSG {
 	file_path_.pop_back();
     }
 
-    /**** misc ****/
 
     protected:
+    /**** Lower-level functions ****/
 
     /**
      * \brief Finds a file in the path
@@ -299,14 +299,6 @@ namespace CSG {
         const std::filesystem::path& filename, const std::string& layer="",
         index_t timestamp=0
     );
-
-    /**
-     * \brief Derived classes may override this function and compute
-     *  some cached information, e.g. bounding boxes, stored in the
-     *  mesh.
-     * \see Mesh::set_cached_information(), Mesh::get_cached_information()
-     */
-    virtual void finalize_mesh(std::shared_ptr<Mesh>& mesh);
 
     /**
      * \brief Symbolic constants for sweep()
@@ -392,11 +384,20 @@ namespace CSG {
     );
 
     /**
-     * \brief keep only triangles and vertices embedded in the z=0 plane, and
-     *  make the mesh 2D.
+     * \brief keeps only triangles and vertices embedded in the z=0 plane, and
+     *  makes the mesh 2D.
+     * \details This also computes the border and re-triangulates it.
      * \param[in,out] M a shared pointer to the mesh
      */
     void keep_z0_only(std::shared_ptr<Mesh>& M);
+
+    /**
+     * \brief Derived classes may override this function and compute
+     *  some cached information, e.g. bounding boxes, stored in the
+     *  mesh.
+     * \see Mesh::set_cached_information(), Mesh::get_cached_information()
+     */
+    virtual void finalize_mesh(std::shared_ptr<Mesh>& mesh);
 
     protected:
     index_t max_arity_;
