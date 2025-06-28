@@ -161,8 +161,7 @@ namespace CSG {
          * \retval true if the conversion was successful
          * \retval false otherwise
          */
-        template <class T>
-        inline bool from_string(const char* s, T& value) {
+        template <class T> inline bool from_string(const char* s, T& value) {
             std::istringstream in(s);
             return (in >> value) && (in.eof() || ((in >> std::ws) && in.eof()));
         }
@@ -177,10 +176,9 @@ namespace CSG {
          * \retval false otherwise
          */
         template <class T>
-        inline bool from_string(const std::string& s, T& value) {
+	inline bool from_string(const std::string& s, T& value) {
             return from_string(s.c_str(), value);
         }
-
 
         /**
          * \brief Creates a string from a format string and additional
