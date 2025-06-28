@@ -315,7 +315,7 @@ namespace CSG {
         // Load STL using our own loader
 	std::shared_ptr<Mesh> result = import("tmpscad.stl");
 
-	std::filesystem::remove("tmpscad.scad");
+	//std::filesystem::remove("tmpscad.scad");
 	std::filesystem::remove("tmpscad.stl");
 
 	update_caches(result);
@@ -388,6 +388,7 @@ namespace CSG {
         result->set_dimension(2);
 	result->compute_borders();
 	triangulate(result,"union");
+	update_caches(result);
         return result;
     }
 
@@ -446,6 +447,7 @@ namespace CSG {
 
 	std::shared_ptr<Mesh> result = append(scope);
 	do_CSG(result, "union");
+	update_caches(result);
 	return result;
     }
 
@@ -485,6 +487,7 @@ namespace CSG {
 
 	std::shared_ptr<Mesh> result = append(scope);
 	do_CSG(result, "intersection");
+	update_caches(result);
         return result;
     }
 
@@ -519,6 +522,7 @@ namespace CSG {
         }
 
 	do_CSG(result, expr);
+	update_caches(result);
         return result;
     }
 
@@ -527,7 +531,9 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::color(vec4 color, const Scope& scope) {
-	return append(scope);
+	std::shared_ptr<Mesh> result = append(scope);
+	update_caches(result);
+	return result;
     }
 
     std::shared_ptr<Mesh> Builder::hull(const Scope& scope) {
@@ -648,6 +654,7 @@ namespace CSG {
 	    (scale == vec2(0.0,0.0)) ? SWEEP_POLE : SWEEP_CAP
 	);
 
+	update_caches(result);
 	return result;
     }
 
@@ -720,7 +727,86 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::projection(const Scope& scope, bool cut) {
-	return std::make_shared<Mesh>();
+	std::shared_ptr<Mesh> result = append(scope);
+        if(result->dimension() != 3) {
+            Logger::err("CSG") << "projection(): input mesh is not of dimenion 3"
+                               << std::endl;
+	    result->clear();
+            return result;
+        }
+        if(cut) {
+	    // Cut mode: intersection between object and z=0 plane.
+            // We reuse the intersection() function as follows:
+	    // Compute intersection with (enlarged) half bbox and
+	    // keep z=0 facets only.
+
+	    vec3 pmin,pmax;
+	    result->get_bbox(pmin,pmax);
+
+	    std::shared_ptr<Mesh> C = cube(3.0*(pmax-pmin), false);
+            for(index_t v=0; v<C->nb_vertices(); ++v) {
+		C->point_3d(v) += vec3(
+		    pmin.x - (pmax.x - pmin.x),
+		    pmin.y - (pmax.y - pmin.y),
+		    0.0
+		);
+            }
+            Scope scope2;
+            scope2.push_back(result);
+            scope2.push_back(C);
+            result = difference(scope2);
+	    result->keep_z0_only();
+	    result->compute_borders();
+	    triangulate(result, "union");
+        } else {
+	    // Union of all triangles projected in 2D. We project only
+	    // half of them (since we have a closed shape). We select
+	    // the orientation with the smallest number of triangles.
+	    result->remove_all_edges();
+	    vector<GEO::Sign> sign(result->nb_triangles());
+	    index_t nb_negative = 0;
+	    index_t nb_positive = 0;
+	    for(index_t t=0; t<result->nb_triangles(); ++t) {
+		index_t v1 = result->triangle_vertex(t,0);
+		index_t v2 = result->triangle_vertex(t,1);
+		index_t v3 = result->triangle_vertex(t,2);
+		vec3 p1 = result->point_3d(v1);
+		vec3 p2 = result->point_3d(v2);
+		vec3 p3 = result->point_3d(v3);
+		sign[t] = GEO::PCK::orient_2d(&p1.x, &p2.x, &p3.x);
+		nb_negative += (sign[t] == GEO::NEGATIVE);
+		nb_positive += (sign[t] == GEO::POSITIVE);
+	    }
+	    GEO::Sign keep_sign =
+		(nb_positive > nb_negative) ? GEO::NEGATIVE : GEO::POSITIVE;
+
+	    for(index_t t=0; t<result->nb_triangles(); ++t) {
+		if(sign[t] == keep_sign) {
+		    index_t v1 = result->triangle_vertex(t,0);
+		    index_t v2 = result->triangle_vertex(t,1);
+		    index_t v3 = result->triangle_vertex(t,2);
+		    index_t e1 = result->create_edge(v1,v2);
+		    index_t e2 = result->create_edge(v2,v3);
+		    index_t e3 = result->create_edge(v3,v1);
+		    // We are using the "cnstr_operand_bits_is_operand_id"
+		    // of the "union" operation in CDT2d.
+		    result->set_edge_operand_bits(e1,t);
+		    result->set_edge_operand_bits(e2,t);
+		    result->set_edge_operand_bits(e3,t);
+		}
+	    }
+	    result->set_dimension(2);
+	    triangulate(result,"union_cnstr_operand_bits_is_operand_id");
+	    result->compute_borders();
+	    result->remove_all_triangles();
+	    result->remove_isolated_vertices();
+	    for(index_t e=0; e<result->nb_edges(); ++e) {
+		result->set_edge_operand_bits(e,1u);
+	    }
+	    triangulate(result,"union");
+        }
+	update_caches(result);
+        return result;
     }
 
     std::shared_ptr<Mesh> Builder::append(const Scope& scope) {
@@ -980,11 +1066,9 @@ namespace CSG {
 	    mesh->remove_all_triangles();     // now keep edge borders only
 	    mesh->remove_isolated_vertices(); // then remove internal vertices
 	    triangulate(mesh, "union");       // re-triangulate border edges
-	    update_caches(mesh);
 	} else {
 	    // Insert your own mesh boolean operation code here !
 	}
-	update_caches(mesh);
     }
 
     void Builder::triangulate(
@@ -1023,6 +1107,7 @@ namespace CSG {
         vmin-=d;
         umax+=d;
         vmax+=d;
+
 	GEO::ExactCDT2d CDT;
         CDT.create_enclosing_rectangle(umin, vmin, umax, vmax);
 
@@ -1072,8 +1157,6 @@ namespace CSG {
 	for(index_t e=0; e<mesh->nb_edges(); ++e) {
 	    mesh->set_edge_operand_bits(e,1u);
 	}
-
-	update_caches(mesh);
     }
 
     void Builder::update_caches(std::shared_ptr<Mesh> M) {

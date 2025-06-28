@@ -38,5 +38,6 @@ int main(int argc, char** argv) {
     }
     CSG::Logger::out("CSGCompiler")
 	<< "Everything OK, Returning status 0" << std::endl;
+
     return 0;
 }
