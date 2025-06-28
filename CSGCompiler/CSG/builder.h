@@ -358,6 +358,8 @@ namespace CSG {
      * \brief Apply a CSG operation to a mesh
      * \details Default implementation works in 2D (based on triangulate())
      *   and does nothing in 3D (to be overriden by user).
+     *  Each triangle has an "operand bit" indicating to which input operand
+     *  it belongs to, set to (1u << operand_id).
      * \param[in,out] the mesh
      * \param[in] boolean_expr the operation to be applied
      *   - "union"
@@ -376,7 +378,8 @@ namespace CSG {
      * \details Computes a constrained Delaunay triangulation from the edges
      *  of the mesh, then classifies the triangles using a boolean expression.
      *  Each edge has an "operand bit" indicating to which input operand
-     *  it belongs to, set to (1u << operand_id).
+     *  it belongs to, set to (1u << operand_id). Used to implement
+     *  CSG operations in 2D.
      * \param[in,out] mesh the input is a set of vertices and edges.
      *   The output has a set of triangles inside the polygons defined by
      *   the edges.
