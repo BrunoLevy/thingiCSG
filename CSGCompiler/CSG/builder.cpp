@@ -608,19 +608,63 @@ namespace CSG {
         double z1 = center ? -height/2.0 : 0.0;
         double z2 = center ?  height/2.0 : height;
 
+	// Estimate number of slices
+	// This is a complicated formula, taken from OpenSCAD
+
         if(slices == 0) {
             slices = index_t(fn_);
         }
-        if(slices == 0 && twist != 0.0) {
-            double R = 0;
-            for(index_t v=0; v<result->nb_vertices(); ++v) {
-		vec2 p = result->point_2d(v);
-                R = std::max(R, length(p));
-                R = std::max(R, length(p*scale));
-            }
-            slices = get_fragments_from_r(R,twist);
+
+        if(slices == 0 ) {
+	    if(twist != 0.0) {
+
+		double max_r1_sqr = 0; // r1 is before scaling
+		for(index_t iv=0; iv<result->nb_vertices(); ++iv) {
+		    const vec2& v = result->point_2d(iv);
+		    max_r1_sqr = std::max(max_r1_sqr, length2(v));
+		}
+
+		if (scale == vec2(1.0, 1.0)) {
+		    // Calculate Helical curve length for Twist with no Scaling
+		    slices = get_helix_slices(max_r1_sqr, height, twist);
+		} else if (scale.x != scale.y) {
+                    // non uniform scaling with twist using max slices
+		    // from twist and non uniform scale
+		    double max_delta_sqr = 0; // delta from before/after scaling
+		    for(index_t iv=0; iv<result->nb_vertices(); ++iv) {
+			const vec2& v = result->point_2d(iv);
+			max_delta_sqr = std::max(
+			    max_delta_sqr, length2(v - scale*v)
+			);
+		    }
+		    index_t slicesNonUniScale = get_diagonal_slices(
+			max_delta_sqr, height
+		    );
+		    index_t slicesTwist = get_helix_slices(
+			max_r1_sqr, height, twist
+		    );
+		    slices = std::max(slicesNonUniScale, slicesTwist);
+		} else {
+                  // uniform scaling with twist, use conical helix calculation
+		    slices = get_conical_helix_slices(
+			max_r1_sqr, height, twist, scale.x
+		    );
+		}
+	    } else if(scale.x != scale.y) {
+		double max_delta_sqr = 0; // delta from before/after scaling
+		for(index_t iv=0; iv<result->nb_vertices(); ++iv) {
+		    const vec2& v = result->point_2d(iv);
+		    max_delta_sqr = std::max(
+			max_delta_sqr, length2(v - scale*v)
+		    );
+		}
+		slices = get_diagonal_slices(max_delta_sqr, height);
+	    } else {
+		slices = 1u;
+	    }
         }
-        slices = std::max(slices, index_t(1));
+
+	// End of number of slices estimation
 
 	index_t nv = slices+1;
 

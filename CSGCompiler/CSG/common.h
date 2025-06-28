@@ -66,6 +66,18 @@ namespace CSG {
     using glm::max;
     using glm::determinant;
 
+    inline double length2(const vec2& v) {
+	return dot(v,v);
+    }
+
+    inline double length2(const vec3& v) {
+	return dot(v,v);
+    }
+
+    inline double length2(const vec4& v) {
+	return dot(v,v);
+    }
+
     inline std::ostream& operator<<(std::ostream& out, vec2 v) {
 	return (out << v.x << ' ' << v.y);
     }
