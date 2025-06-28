@@ -236,6 +236,172 @@ namespace Calc {
 
 }
 
+namespace {
+    using namespace CSG;
+
+    /**
+     * \brief Symbolic constants for sweep()
+     */
+    enum SweepCapping {
+	SWEEP_CAP,
+	SWEEP_POLE,
+	SWEEP_PERIODIC
+    };
+
+    /**
+     * \brief The generalized sweeping operation
+     * \details Used to implement sphere(), cylinder(), linear_extrude() and
+     *  rotate_extrude()
+     * \param[in,out] mesh on entry, a 2D mesh. On exit, a 3D mesh. The triangles
+     *  present in the mesh are used to generate the caps. They are copied to
+     *  generate the second cap if \p capping is set to SWEEP_CAP (default).
+     * \param[in] nv number of sweeping steps. Minimum is 2.
+     * \param[in] sweep_path a function that maps u,v indices to 3D
+     *  points, where u is the index of a initial 2D vertex and v
+     *  in [0..nv-1] the sweeping step. One can use the point at vertex
+     *  u to evaluate the path (it will not be overwritten before calling
+     *  sweep_path()). Note that u vertices are not necessarily ordered.
+     * \param[in] capping one of:
+     *   - SWEEP_CAP standard sweeping, generate second capping by
+     *     copying first one
+     *   - SWEEP_POLE if last sweeping step degenerates to a
+     *     single point
+     *   - SWEEP_PERIODIC if no cappings should be generated and last
+     *     sweeping step corresponds to first one
+     */
+    template <class PATH> void sweep(
+	std::shared_ptr<Mesh>& M,
+	index_t nv,
+	PATH sweep_path,
+	SweepCapping capping = SWEEP_CAP
+    ) {
+
+	M->set_dimension(2);
+	index_t nu = M->nb_vertices();
+
+	index_t total_nb_vertices;
+	switch(capping) {
+	case SWEEP_CAP: {
+	    total_nb_vertices = nu*nv;
+	} break;
+	case SWEEP_POLE: {
+	    total_nb_vertices = nu*(nv-1)+1;
+	} break;
+	case SWEEP_PERIODIC: {
+	    total_nb_vertices = nu*(nv-1);
+	    M->remove_all_triangles();
+	} break;
+	}
+
+	index_t nt0 = M->nb_triangles();
+
+	M->set_dimension(3);
+	M->create_vertices(total_nb_vertices - nu);
+
+	// Start from 1: do not touch first slice for now, because it
+	// may be used by sweep_path (as the origin of paths)
+	for(index_t v=1; v<nv-1; ++v) {
+	    for(index_t u=0; u<nu; ++u) {
+		M->point_3d(v*nu+u) = sweep_path(u,v);
+	    }
+	}
+
+	// Particular case: last slice
+	switch(capping) {
+	case SWEEP_CAP:
+	    for(index_t u=0; u<nu; ++u) {
+		M->point_3d((nv-1)*nu+u) = sweep_path(u,nv-1);
+	    }
+	    break;
+	case SWEEP_POLE:
+	    M->point_3d((nv-1)*nu) = sweep_path(0,nv-1);
+	    break;
+	case SWEEP_PERIODIC:
+	    // Nothing to do, last slice is same as first slice
+	    break;
+	}
+
+        // Now map first slice
+        for(index_t u=0; u<nu; ++u) {
+	    M->point_3d(u) = sweep_path(u,0);
+	}
+
+	// creates one row of "brick" for the walls
+	auto create_brick_row = [&](index_t v, bool periodic=false) {
+	    index_t v1 = v;
+	    index_t v2 = v1+1;
+	    if(periodic && v2 == nv-1) {
+		v2 = 0;
+	    }
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v1 * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v1 * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = v2 * nu + M->edge_vertex(e,0) ;
+		index_t vx4 = v2 * nu + M->edge_vertex(e,1) ;
+		const vec3& p1 = M->point_3d(vx1);
+		const vec3& p2 = M->point_3d(vx2);
+		const vec3& p3 = M->point_3d(vx3);
+		const vec3& p4 = M->point_3d(vx4);
+		if(length(p3-p2) < length(p4-p1)) {
+		    M->create_triangle(vx1, vx2, vx3);
+		    M->create_triangle(vx3, vx2, vx4);
+		} else {
+		    M->create_triangle(vx1, vx2, vx4);
+		    M->create_triangle(vx1, vx4, vx3);
+		}
+	    }
+	};
+
+	// generate walls (all brick rows except last one)
+	for(index_t v=0; v+2 < nv; ++v) {
+	    create_brick_row(v);
+	}
+
+	// generate walls (last "brick" row, depends on capping mode)
+	switch(capping) {
+	case SWEEP_CAP: {
+	    create_brick_row(nv-2);
+	} break;
+	case SWEEP_POLE: {
+	    index_t v = nv-2;
+	    for(index_t e=0; e < M->nb_edges(); ++e) {
+		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
+		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
+		index_t vx3 = nu * (nv-1);
+		M->create_triangle(vx1, vx2, vx3);
+	    }
+	} break;
+	case SWEEP_PERIODIC: {
+	    create_brick_row(nv-2, true); // periodic
+	} break;
+	}
+
+	// generate second capping
+	if(capping == SWEEP_CAP) {
+	    index_t nt1 = M->nb_triangles();
+	    index_t v_ofs = nu*(nv-1);
+	    M->create_triangles(nt0);
+	    for(index_t t=0; t<nt0; ++t) {
+		M->set_triangle(
+		    t+nt1,
+		    v_ofs + M->triangle_vertex(t,0),
+		    v_ofs + M->triangle_vertex(t,1),
+		    v_ofs + M->triangle_vertex(t,2)
+		);
+	    }
+	}
+
+	// flip initial triangles to generate first capping
+	if(capping == SWEEP_CAP || capping == SWEEP_POLE) {
+	    for(index_t t=0; t<nt0; ++t) {
+		M->flip_triangle(t);
+	    }
+	}
+
+	M->remove_all_edges();
+    }
+}
+
 
 namespace CSG {
 
@@ -1133,138 +1299,6 @@ namespace CSG {
         result->set_dimension(2);
 
         return result;
-    }
-
-
-    void Builder::sweep(
-	std::shared_ptr<Mesh>& M,
-	index_t nv,
-	std::function<vec3(index_t u, index_t v)> sweep_path,
-	SweepCapping capping
-    ) {
-	M->set_dimension(2);
-	index_t nu = M->nb_vertices();
-
-	index_t total_nb_vertices;
-	switch(capping) {
-	case SWEEP_CAP: {
-	    total_nb_vertices = nu*nv;
-	} break;
-	case SWEEP_POLE: {
-	    total_nb_vertices = nu*(nv-1)+1;
-	} break;
-	case SWEEP_PERIODIC: {
-	    total_nb_vertices = nu*(nv-1);
-	    M->remove_all_triangles();
-	} break;
-	}
-
-	index_t nt0 = M->nb_triangles();
-
-	M->set_dimension(3);
-	M->create_vertices(total_nb_vertices - nu);
-
-	// Start from 1: do not touch first slice for now, because it
-	// may be used by sweep_path (as the origin of paths)
-	for(index_t v=1; v<nv-1; ++v) {
-	    for(index_t u=0; u<nu; ++u) {
-		M->point_3d(v*nu+u) = sweep_path(u,v);
-	    }
-	}
-
-	// Particular case: last slice
-	switch(capping) {
-	case SWEEP_CAP:
-	    for(index_t u=0; u<nu; ++u) {
-		M->point_3d((nv-1)*nu+u) = sweep_path(u,nv-1);
-	    }
-	    break;
-	case SWEEP_POLE:
-	    M->point_3d((nv-1)*nu) = sweep_path(0,nv-1);
-	    break;
-	case SWEEP_PERIODIC:
-	    // Nothing to do, last slice is same as first slice
-	    break;
-	}
-
-        // Now map first slice
-        for(index_t u=0; u<nu; ++u) {
-	    M->point_3d(u) = sweep_path(u,0);
-	}
-
-	// creates one row of "brick" for the walls
-	auto create_brick_row = [&](index_t v, bool periodic=false) {
-	    index_t v1 = v;
-	    index_t v2 = v1+1;
-	    if(periodic && v2 == nv-1) {
-		v2 = 0;
-	    }
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v1 * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v1 * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = v2 * nu + M->edge_vertex(e,0) ;
-		index_t vx4 = v2 * nu + M->edge_vertex(e,1) ;
-		const vec3& p1 = M->point_3d(vx1);
-		const vec3& p2 = M->point_3d(vx2);
-		const vec3& p3 = M->point_3d(vx3);
-		const vec3& p4 = M->point_3d(vx4);
-		if(length(p3-p2) < length(p4-p1)) {
-		    M->create_triangle(vx1, vx2, vx3);
-		    M->create_triangle(vx3, vx2, vx4);
-		} else {
-		    M->create_triangle(vx1, vx2, vx4);
-		    M->create_triangle(vx1, vx4, vx3);
-		}
-	    }
-	};
-
-	// generate walls (all brick rows except last one)
-	for(index_t v=0; v+2 < nv; ++v) {
-	    create_brick_row(v);
-	}
-
-	// generate walls (last "brick" row, depends on capping mode)
-	switch(capping) {
-	case SWEEP_CAP: {
-	    create_brick_row(nv-2);
-	} break;
-	case SWEEP_POLE: {
-	    index_t v = nv-2;
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = nu * (nv-1);
-		M->create_triangle(vx1, vx2, vx3);
-	    }
-	} break;
-	case SWEEP_PERIODIC: {
-	    create_brick_row(nv-2, true); // periodic
-	} break;
-	}
-
-	// generate second capping
-	if(capping == SWEEP_CAP) {
-	    index_t nt1 = M->nb_triangles();
-	    index_t v_ofs = nu*(nv-1);
-	    M->create_triangles(nt0);
-	    for(index_t t=0; t<nt0; ++t) {
-		M->set_triangle(
-		    t+nt1,
-		    v_ofs + M->triangle_vertex(t,0),
-		    v_ofs + M->triangle_vertex(t,1),
-		    v_ofs + M->triangle_vertex(t,2)
-		);
-	    }
-	}
-
-	// flip initial triangles to generate first capping
-	if(capping == SWEEP_CAP || capping == SWEEP_POLE) {
-	    for(index_t t=0; t<nt0; ++t) {
-		M->flip_triangle(t);
-	    }
-	}
-
-	M->remove_all_edges();
     }
 
     void Builder::do_CSG(

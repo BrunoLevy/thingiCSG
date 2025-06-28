@@ -278,7 +278,8 @@ namespace CSG {
     }
 
 
-    protected:
+    //protected:
+    public:
     /**** Lower-level functions ****/
 
     /**
@@ -298,43 +299,6 @@ namespace CSG {
     std::shared_ptr<Mesh> import_with_openSCAD(
         const std::filesystem::path& filename, const std::string& layer="",
         index_t timestamp=0
-    );
-
-    /**
-     * \brief Symbolic constants for sweep()
-     */
-    enum SweepCapping {
-	SWEEP_CAP,
-	SWEEP_POLE,
-	SWEEP_PERIODIC
-    };
-
-    /**
-     * \brief The generalized sweeping operation
-     * \details Used to implement sphere(), cylinder(), linear_extrude() and
-     *  rotate_extrude()
-     * \param[in,out] mesh on entry, a 2D mesh. On exit, a 3D mesh. The triangles
-     *  present in the mesh are used to generate the caps. They are copied to
-     *  generate the second cap if \p capping is set to SWEEP_CAP (default).
-     * \param[in] nv number of sweeping steps. Minimum is 2.
-     * \param[in] sweep_path a function that maps u,v indices to 3D
-     *  points, where u is the index of a initial 2D vertex and v
-     *  in [0..nv-1] the sweeping step. One can use the point at vertex
-     *  u to evaluate the path (it will not be overwritten before calling
-     *  sweep_path()). Note that u vertices are not necessarily ordered.
-     * \param[in] capping one of:
-     *   - SWEEP_CAP standard sweeping, generate second capping by
-     *     copying first one
-     *   - SWEEP_POLE if last sweeping step degenerates to a
-     *     single point
-     *   - SWEEP_PERIODIC if no cappings should be generated and last
-     *     sweeping step corresponds to first one
-     */
-    virtual void sweep(
-	std::shared_ptr<Mesh>& mesh,
-	index_t nv,
-	std::function<vec3(index_t, index_t)> sweep_path,
-	SweepCapping capping = SWEEP_CAP
     );
 
     /**
