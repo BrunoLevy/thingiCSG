@@ -798,8 +798,6 @@ namespace CSG {
 	    result->set_dimension(2);
 	    triangulate(result,"union_cnstr_operand_bits_is_operand_id");
 	    result->compute_borders();
-	    result->remove_all_triangles();
-	    result->remove_isolated_vertices();
 	    for(index_t e=0; e<result->nb_edges(); ++e) {
 		result->set_edge_operand_bits(e,1u);
 	    }
