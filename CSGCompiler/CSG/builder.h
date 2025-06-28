@@ -306,10 +306,34 @@ namespace CSG {
      * \param[in] r the radius of the circle
      * \param[in] twist the portion of the circle that will be drawn,
      *   in degrees
-     * \details Uses fn,fs,fa
+     * \details Uses fn,fs,fa. Taken from OpenSCAD utils/calc.
      * \see set_fn(), set_fs(), set_fa()
      */
-    index_t get_fragments_from_r(double r, double twist = 360.0);
+    index_t get_fragments_from_r(double r, double twist = 360.0) const;
+
+    /**
+     * \brief TODOC
+     * \details Uses fn,fs,fa. Taken from OpenSCAD utils/calc.
+     * \see set_fn(), set_fs(), set_fa()
+     */
+    index_t get_helix_slices(double r_sqr, double h, double twist) const;
+
+    /**
+     * \brief TODOC
+     * \details Uses fn,fs,fa. Taken from OpenSCAD utils/calc.
+     * \see set_fn(), set_fs(), set_fa()
+     */
+    index_t get_conical_helix_slices(
+	double r, double height, double twist, double scale
+    ) const;
+
+    /**
+     * \brief TODOC
+     * \details Uses fn,fs,fa. Taken from OpenSCAD utils/calc.
+     * \see set_fn(), set_fs(), set_fa()
+     */
+    index_t get_diagonal_slices(double delta_sqr, double height) const;
+
 
     /**
      * \brief Derived classes may override this function and compute
@@ -332,7 +356,9 @@ namespace CSG {
      * \brief The generalized sweeping operation
      * \details Used to implement sphere(), cylinder(), linear_extrude() and
      *  rotate_extrude()
-     * \param[in,out] mesh on entry, a 2D mesh. On exit, a 3D mesh.
+     * \param[in,out] mesh on entry, a 2D mesh. On exit, a 3D mesh. The triangles
+     *  present in the mesh are used to generate the caps. They are copied to
+     *  generate the second cap if \p capping is set to SWEEP_CAP (default).
      * \param[in] nv number of sweeping steps. Minimum is 2.
      * \param[in] sweep_path a function that maps u,v indices to 3D
      *  points, where u is the index of a initial 2D vertex and v
