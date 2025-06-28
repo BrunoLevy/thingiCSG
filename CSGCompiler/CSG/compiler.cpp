@@ -341,7 +341,7 @@ namespace CSG {
 	    facet.resize(0);
         }
 
-        builder_->update_caches(M);
+        builder_->finalize_mesh(M);
         return M;
     }
 
@@ -413,7 +413,7 @@ namespace CSG {
         }
 
         builder_->triangulate(M,"union");
-        builder_->update_caches(M);
+        builder_->finalize_mesh(M);
 
         return M;
     }

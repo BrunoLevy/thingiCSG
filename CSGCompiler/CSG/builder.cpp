@@ -52,7 +52,7 @@ namespace CSG {
 	M->create_edge(3,2);
 	M->create_edge(2,0);
 
-        update_caches(M);
+        finalize_mesh(M);
 
 	return M;
     }
@@ -106,7 +106,7 @@ namespace CSG {
 	    M->create_edge(u, (u+1)%nu);
 	}
 
-        update_caches(M);
+        finalize_mesh(M);
 
 	return M;
     }
@@ -161,7 +161,7 @@ namespace CSG {
         M->create_triangle(6,4,7);
         M->create_triangle(7,4,5);
 
-	update_caches(M);
+	finalize_mesh(M);
 
 	return M;
     }
@@ -205,7 +205,7 @@ namespace CSG {
 	    }
 	);
 
-	update_caches(result);
+	finalize_mesh(result);
 	return result;
     }
 
@@ -251,7 +251,7 @@ namespace CSG {
 	    (r[1] == 0.0) ? SWEEP_POLE : SWEEP_CAP
 	);
 
-	update_caches(result);
+	finalize_mesh(result);
 	return result;
     }
 
@@ -288,7 +288,7 @@ namespace CSG {
 	    triangulate(result, "union");
 	}
 
-        update_caches(result);
+        finalize_mesh(result);
         return result;
     }
 
@@ -318,7 +318,7 @@ namespace CSG {
 	//std::filesystem::remove("tmpscad.scad");
 	std::filesystem::remove("tmpscad.stl");
 
-	update_caches(result);
+	finalize_mesh(result);
         return result;
     }
 
@@ -388,7 +388,7 @@ namespace CSG {
         result->set_dimension(2);
 	result->compute_borders();
 	triangulate(result,"union");
-	update_caches(result);
+	finalize_mesh(result);
         return result;
     }
 
@@ -412,7 +412,7 @@ namespace CSG {
 	if(determinant(M) < 0.0) {
 	    result->flip();
 	}
-	update_caches(result);
+	finalize_mesh(result);
 	return result;
     }
 
@@ -447,7 +447,7 @@ namespace CSG {
 
 	std::shared_ptr<Mesh> result = append(scope);
 	do_CSG(result, "union");
-	update_caches(result);
+	finalize_mesh(result);
 	return result;
     }
 
@@ -487,7 +487,7 @@ namespace CSG {
 
 	std::shared_ptr<Mesh> result = append(scope);
 	do_CSG(result, "intersection");
-	update_caches(result);
+	finalize_mesh(result);
         return result;
     }
 
@@ -522,7 +522,7 @@ namespace CSG {
         }
 
 	do_CSG(result, expr);
-	update_caches(result);
+	finalize_mesh(result);
         return result;
     }
 
@@ -532,7 +532,7 @@ namespace CSG {
 
     std::shared_ptr<Mesh> Builder::color(vec4 color, const Scope& scope) {
 	std::shared_ptr<Mesh> result = append(scope);
-	update_caches(result);
+	finalize_mesh(result);
 	return result;
     }
 
@@ -598,7 +598,7 @@ namespace CSG {
             }
         }
 	result->remove_isolated_vertices();
-        update_caches(result);
+        finalize_mesh(result);
         return result;
     }
 
@@ -654,7 +654,7 @@ namespace CSG {
 	    (scale == vec2(0.0,0.0)) ? SWEEP_POLE : SWEEP_CAP
 	);
 
-	update_caches(result);
+	finalize_mesh(result);
 	return result;
     }
 
@@ -722,7 +722,7 @@ namespace CSG {
 	    result->flip();
 	}
 
-	update_caches(result);
+	finalize_mesh(result);
 	return result;
     }
 
@@ -805,7 +805,7 @@ namespace CSG {
 	    }
 	    triangulate(result,"union");
         }
-	update_caches(result);
+	finalize_mesh(result);
         return result;
     }
 
@@ -1159,7 +1159,7 @@ namespace CSG {
 	}
     }
 
-    void Builder::update_caches(std::shared_ptr<Mesh> M) {
+    void Builder::finalize_mesh(std::shared_ptr<Mesh> M) {
 	csg_argused(M);
     }
 }

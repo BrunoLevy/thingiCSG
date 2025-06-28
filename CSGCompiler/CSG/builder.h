@@ -317,7 +317,7 @@ namespace CSG {
      *  mesh.
      * \see Mesh::set_cached_information(), Mesh::get_cached_information()
      */
-    virtual void update_caches(std::shared_ptr<Mesh> mesh);
+    virtual void finalize_mesh(std::shared_ptr<Mesh> mesh);
 
     /**
      * \brief Symbolic constants for sweep()
