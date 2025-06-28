@@ -149,7 +149,7 @@ namespace CSG {
     virtual std::shared_ptr<Mesh> linear_extrude(
         const Scope& scope,
         double height = 1.0,
-        bool center = true,
+        bool center = false,
         vec2 scale = vec2(1.0,1.0),
         index_t slices = 0,
         double twist = 0.0
@@ -299,41 +299,6 @@ namespace CSG {
         const std::filesystem::path& filename, const std::string& layer="",
         index_t timestamp=0
     );
-
-    /**
-     * \brief Computes the number of fragments, that is, edges
-     *  in a polygonal approximation of a circle.
-     * \param[in] r the radius of the circle
-     * \param[in] twist the portion of the circle that will be drawn,
-     *   in degrees
-     * \details Uses fn,fs,fa. Taken from OpenSCAD utils/calc.
-     * \see set_fn(), set_fs(), set_fa()
-     */
-    index_t get_fragments_from_r(double r, double twist = 360.0) const;
-
-    /**
-     * \brief TODOC
-     * \details Uses fn,fs,fa. Taken from OpenSCAD utils/calc.
-     * \see set_fn(), set_fs(), set_fa()
-     */
-    index_t get_helix_slices(double r_sqr, double h, double twist) const;
-
-    /**
-     * \brief TODOC
-     * \details Uses fn,fs,fa. Taken from OpenSCAD utils/calc.
-     * \see set_fn(), set_fs(), set_fa()
-     */
-    index_t get_conical_helix_slices(
-	double r, double height, double twist, double scale
-    ) const;
-
-    /**
-     * \brief TODOC
-     * \details Uses fn,fs,fa. Taken from OpenSCAD utils/calc.
-     * \see set_fn(), set_fs(), set_fa()
-     */
-    index_t get_diagonal_slices(double delta_sqr, double height) const;
-
 
     /**
      * \brief Derived classes may override this function and compute

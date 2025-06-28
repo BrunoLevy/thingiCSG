@@ -554,7 +554,7 @@ namespace CSG {
         const ArgList& args, const Scope& scope
     ) {
         double height = args.get_arg("height", 1.0);
-        bool center = args.get_arg("center", true);
+        bool center = args.get_arg("center", false);
         vec2 scale = args.get_arg("scale", vec2(1.0, 1.0));
         index_t slices = index_t(args.get_arg("slices",0));
         double twist = args.get_arg("twist",0.0);

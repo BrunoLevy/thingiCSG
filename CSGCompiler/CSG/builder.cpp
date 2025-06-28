@@ -1,16 +1,240 @@
-
-// OpenSCAD extrusion: src/geometry/GeometryEvaluator.c
-// To be understood:
-// - how to evaluate number of steps and number of fragments
-// - resample mode
-//
-// Extrusion walls: pick shortest diagonal
-// splitOutlineByFs(), splitOutlineByFn()
-// extrudePolygon()
-
 #include <CSG/builder.h>
 #include <CSG/mesh_io.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
+
+/******************************************************************************/
+/* Utility functions taken from OpenSCAD/utils/calc.cc                        */
+/******************************************************************************/
+
+namespace Calc {
+
+    // From openscad/Geometry/Grid.h
+    static constexpr double GRID_FINE = 0.00000095367431640625;
+    static constexpr double M_DEG2RAD = M_PI / 180.0;
+
+    int get_fragments_from_r_and_twist(
+	double r, double twist, double fn, double fs, double fa
+    ) {
+
+	if (r < GRID_FINE || std::isinf(fn) || std::isnan(fn)) {
+	    return 3u;
+	}
+	if (fn > 0.0) {
+	    return static_cast<int>(fn >= 3 ? fn : 3);
+	}
+	return static_cast<int>(
+	    ceil(fmax(fmin(twist / fa, r * 2.0 * M_PI / fs), 5.0))
+	);
+    }
+
+    int get_fragments_from_r(
+	double r, double fn, double fs, double fa
+    ) {
+	return get_fragments_from_r_and_twist(r, 360.0, fn, fs, fa);
+    }
+
+    /*
+     https://mathworld.wolfram.com/Helix.html
+     For a helix defined as:    F(t) = [r*cost(t), r*sin(t), c*t]  for t in [0,T)
+     The helical arc length is          L = T * sqrt(r^2 + c^2)
+     Where its pitch is             pitch = 2*PI*c
+     Pitch is also height per turn: pitch = height / (twist/360)
+     Solving for c gives                c = height / (twist*PI/180)
+     Where (twist*PI/180) is just twist in radians, aka "T"
+    */
+    double helix_arc_length(double r_sqr, double height, double twist) {
+	double T = twist * M_DEG2RAD;
+	double c = height / T;
+	return T * sqrt(r_sqr + c * c);
+    }
+
+
+    /*!
+     Returns the number of slices for a linear_extrude with twist.
+     Given height, twist, and the three special variables $fn, $fs and $fa
+    */
+    int get_helix_slices(
+	double r_sqr, double height, double twist,
+	double fn, double fs, double fa
+    ) {
+	twist = fabs(twist);
+	// 180 twist per slice is worst case, guaranteed non-manifold.
+	// Make sure we have at least 3 slices per 360 twist
+	int min_slices = std::max(static_cast<int>(ceil(twist / 120.0)), 1);
+	if (sqrt(r_sqr) < GRID_FINE || std::isinf(fn) || std::isnan(fn))
+	    return min_slices;
+	if (fn > 0.0) {
+	    int fn_slices = static_cast<int>(ceil(twist / 360.0 * fn));
+	    return std::max(fn_slices, min_slices);
+	}
+	int fa_slices = static_cast<int>(ceil(twist / fa));
+	int fs_slices = static_cast<int>(
+	    ceil(helix_arc_length(r_sqr, height, twist) / fs)
+	);
+	return std::max(std::min(fa_slices, fs_slices), min_slices);
+    }
+
+   /*
+    For linear_extrude with twist and uniform scale (scale_x == scale_y),
+    to calculate the limit imposed by special variable $fs, we find the
+    total length along the path that a vertex would follow.
+    The XY-projection of this path is a section of the Archimedes Spiral.
+    https://mathworld.wolfram.com/ArchimedesSpiral.html
+    Using the formula for its arc length, then pythagorean theorem with height
+    should tell us the total distance a vertex covers.
+    */
+    double archimedes_length(double a, double theta) {
+	return 0.5 * a * (theta * sqrt(1 + theta * theta) + asinh(theta));
+    }
+
+
+    int get_conical_helix_slices(
+	double r_sqr, double height, double twist, double scale,
+	double fn, double fs, double fa
+    ) {
+	twist = fabs(twist);
+	double r = sqrt(r_sqr);
+	int min_slices = std::max(static_cast<int>(ceil(twist / 120.0)), 1);
+	if (r < GRID_FINE || std::isinf(fn) || std::isnan(fn)) {
+	    return min_slices;
+	}
+	if (fn > 0.0) {
+	    int fn_slices = static_cast<int>(ceil(twist * fn / 360));
+	    return std::max(fn_slices, min_slices);
+	}
+
+     /*
+        Spiral length equation assumes starting from theta=0
+        Our twist+scale only covers a section of this length (unless scale=0).
+        Find the start and end angles that our twist+scale correspond to.
+        Use similar triangles to visualize cross-section of single vertex,
+        with scale extended to 0 (origin).
+
+        (scale < 1)        (scale > 1)
+                           ______t_  1.5x (Z=h)
+       0x                 |    | /
+      |\                  |____|/
+      | \                 |    / 1x  (Z=0)
+      |  \                |   /
+      |___\ 0.66x (Z=h)   |  /     t is angle of our arc section (twist, in rads)
+      |   |\              | /      E is angle_end (total triangle base length)
+      |___|_\  1x (Z=0)   |/ 0x    S is angle_start
+            t
+
+        E = t*1/(1-0.66)=3t E = t*1.5/(1.5-1)  = 3t
+        B = E - t            B = E - t
+      */
+	double rads = twist * M_DEG2RAD;
+	double angle_end;
+	if (scale > 1) {
+	    angle_end = rads * scale / (scale - 1);
+	} else if (scale < 1) {
+	    angle_end = rads / (1 - scale);
+	} else {
+	    assert(
+		false &&
+		"Don't calculate conical slices on non-scaled extrude!"
+	    );
+	}
+	double angle_start = angle_end - rads;
+	double a = r / angle_end; // spiral scale coefficient
+	double spiral_length = archimedes_length(
+	    a, angle_end) - archimedes_length(a, angle_start
+					     );
+	// Treat (flat spiral_length,extrusion height) as (base,height)
+	// of a right triangle to get diagonal length.
+	double total_length = sqrt(
+	    spiral_length * spiral_length + height * height
+	);
+
+	int fs_slices = static_cast<int>(ceil(total_length / fs));
+	int fa_slices = static_cast<int>(ceil(twist / fa));
+	return std::max(std::min(fa_slices, fs_slices), min_slices);
+    }
+
+   /*
+    For linear_extrude with non-uniform scale (and no twist)
+    Either use $fn directly as slices,
+    or divide the longest diagonal vertex extrude path by $fs
+
+    dr_sqr - the largest 2D delta (before/after scaling)
+       for all vertices, squared.
+    note: $fa is not considered since no twist
+          scale is not passed in since it was already used
+  	  to calculate the largest delta.
+    */
+    int get_diagonal_slices(
+	double delta_sqr, double height, double fn, double fs
+    ) {
+	constexpr int min_slices = 1;
+	if (sqrt(delta_sqr) < GRID_FINE || std::isinf(fn) || std::isnan(fn)) {
+	    return min_slices;
+	}
+	if (fn > 0.0) {
+	    int fn_slices = static_cast<int>(fn);
+	    return std::max(fn_slices, min_slices);
+	}
+	int fs_slices = static_cast<int>(
+	    ceil(sqrt(delta_sqr + height * height) / fs)
+	);
+	return std::max(fs_slices, min_slices);
+    }
+
+    // This one is not part of OpenSCAD, I copied it from
+    // extrudePolygon() in geometry/GeometryEvaluator.cc
+    // (with some readaptations / reordering to make it
+    // easier to understand, at least for me)
+    int get_linear_extrusion_slices(
+	std::shared_ptr<CSG::Mesh> M,
+	double height, CSG::vec2 scale, double twist,
+	double fn, double fs, double fa
+    ) {
+
+	if(twist == 0.0 && scale.x == scale.y) {
+	    return 1;
+	}
+
+	double max_r1_sqr = 0.0;  // r1 is before scaling
+	double max_delta_sqr = 0; // delta from before/after scaling
+	for(CSG::index_t iv=0; iv<M->nb_vertices(); ++iv) {
+	    const CSG::vec2& v = M->point_2d(iv);
+	    max_r1_sqr = std::max(max_r1_sqr, CSG::length2(v));
+	    max_delta_sqr = std::max(
+		max_delta_sqr, CSG::length2(v - scale*v)
+	    );
+	}
+
+	if(twist == 0.0) {
+	    return get_diagonal_slices(max_delta_sqr, height, fn, fs);
+	}
+
+	// Calculate Helical curve length for Twist with no Scaling
+	if(scale == CSG::vec2(1.0, 1.0)) {
+	    return get_helix_slices(max_r1_sqr, height, twist, fn, fs, fa);
+	}
+
+	// non uniform scaling with twist using max slices
+	// from twist and non uniform scale
+	if(scale.x != scale.y) {
+	    int slicesNonUniScale = get_diagonal_slices(
+		max_delta_sqr, height, fn, fs
+	    );
+	    int slicesTwist = get_helix_slices(
+		max_r1_sqr, height, twist, fn, fs, fa
+	    );
+	    return std::max(slicesNonUniScale, slicesTwist);
+	}
+
+	// uniform scaling with twist, use conical helix calculation
+	return get_conical_helix_slices(
+	    max_r1_sqr, height, twist, scale.x, fn, fs, fa
+	);
+    }
+
+/******************************************************************************/
+
+}
+
 
 namespace CSG {
 
@@ -19,8 +243,8 @@ namespace CSG {
         reset_file_path();
         verbose_ = false;
 	warnings_ = false;
-	max_arity_ = 32;
-	fused_union_difference_ = true;
+	max_arity_ = 32; // maximum number of arguments in CSG operation
+	fused_union_difference_ = true; // use A-(B+C+D+...) in single op
     }
 
     std::shared_ptr<Mesh> Builder::square(vec2 size, bool center) {
@@ -71,7 +295,7 @@ namespace CSG {
 	std::shared_ptr<Mesh> M = std::make_shared<Mesh>();
 
 	if(nu == 0) {
-	    nu = get_fragments_from_r(r);
+	    nu = index_t(Calc::get_fragments_from_r(r, fn_, fs_, fa_));
 	}
 	nu = std::max(nu, index_t(3));
         M->set_dimension(2);
@@ -177,7 +401,7 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::sphere(double r) {
-        index_t nu = get_fragments_from_r(r);
+        index_t nu = index_t(Calc::get_fragments_from_r(r,fn_,fs_,fa_));
         index_t nv = nu / 2;
 	if(nu >= 5 && (nu & 1) != 0) {
 	    ++nv;
@@ -222,7 +446,11 @@ namespace CSG {
     std::shared_ptr<Mesh> Builder::cylinder(
 	double h, double r1, double r2, bool center
     ) {
-        index_t nu = get_fragments_from_r(std::max(r1,r2));
+        index_t nu = index_t(
+	    Calc::get_fragments_from_r(
+		std::max(r1,r2),fn_,fs_,fa_
+	    )
+	);
 
 	double r[2] = { r1, r2 };
 
@@ -608,63 +836,13 @@ namespace CSG {
         double z1 = center ? -height/2.0 : 0.0;
         double z2 = center ?  height/2.0 : height;
 
-	// Estimate number of slices
-	// This is a complicated formula, taken from OpenSCAD
-
         if(slices == 0) {
-            slices = index_t(fn_);
-        }
-
-        if(slices == 0 ) {
-	    if(twist != 0.0) {
-
-		double max_r1_sqr = 0; // r1 is before scaling
-		for(index_t iv=0; iv<result->nb_vertices(); ++iv) {
-		    const vec2& v = result->point_2d(iv);
-		    max_r1_sqr = std::max(max_r1_sqr, length2(v));
-		}
-
-		if (scale == vec2(1.0, 1.0)) {
-		    // Calculate Helical curve length for Twist with no Scaling
-		    slices = get_helix_slices(max_r1_sqr, height, twist);
-		} else if (scale.x != scale.y) {
-                    // non uniform scaling with twist using max slices
-		    // from twist and non uniform scale
-		    double max_delta_sqr = 0; // delta from before/after scaling
-		    for(index_t iv=0; iv<result->nb_vertices(); ++iv) {
-			const vec2& v = result->point_2d(iv);
-			max_delta_sqr = std::max(
-			    max_delta_sqr, length2(v - scale*v)
-			);
-		    }
-		    index_t slicesNonUniScale = get_diagonal_slices(
-			max_delta_sqr, height
-		    );
-		    index_t slicesTwist = get_helix_slices(
-			max_r1_sqr, height, twist
-		    );
-		    slices = std::max(slicesNonUniScale, slicesTwist);
-		} else {
-                  // uniform scaling with twist, use conical helix calculation
-		    slices = get_conical_helix_slices(
-			max_r1_sqr, height, twist, scale.x
-		    );
-		}
-	    } else if(scale.x != scale.y) {
-		double max_delta_sqr = 0; // delta from before/after scaling
-		for(index_t iv=0; iv<result->nb_vertices(); ++iv) {
-		    const vec2& v = result->point_2d(iv);
-		    max_delta_sqr = std::max(
-			max_delta_sqr, length2(v - scale*v)
-		    );
-		}
-		slices = get_diagonal_slices(max_delta_sqr, height);
-	    } else {
-		slices = 1u;
-	    }
-        }
-
-	// End of number of slices estimation
+	    slices = index_t(
+		Calc::get_linear_extrusion_slices(
+		    result, height, scale, twist, fn_, fs_, fa_
+		)
+	    );
+	}
 
 	index_t nv = slices+1;
 
@@ -737,7 +915,9 @@ namespace CSG {
         for(index_t v=0; v<result->nb_vertices(); ++v) {
             R = std::max(R, result->point_2d(v).x);
         }
-        index_t slices = get_fragments_from_r(R,angle);
+        index_t slices = index_t(
+	    Calc::get_fragments_from_r_and_twist(R,angle,fn_,fs_,fa_)
+	);
 	index_t nv = slices+1;
 
 	sweep(
@@ -955,165 +1135,6 @@ namespace CSG {
         return result;
     }
 
-/******************************************************************************/
-/* Utility functions taken from OpenSCAD/utils/calc.cc                        */
-/******************************************************************************/
-
-    // From openscad/Geometry/Grid.h
-    static constexpr double GRID_FINE = 0.00000095367431640625;
-
-    index_t Builder::get_fragments_from_r(double r, double twist) const {
-
-	if (r < GRID_FINE || std::isinf(fn_) || std::isnan(fn_)) {
-	    return 3u;
-	}
-	if (fn_ > 0.0) {
-	    return static_cast<index_t>(fn_ >= 3 ? fn_ : 3);
-	}
-	return static_cast<index_t>(
-	    ceil(fmax(fmin(twist / fa_, r * 2 * M_PI / fs_), 5))
-	);
-    }
-
-   /*
-     https://mathworld.wolfram.com/Helix.html
-     For a helix defined as:  F(t) = [r*cost(t), r*sin(t), c*t]  for t in [0,T)
-     The helical arc length is          L = T * sqrt(r^2 + c^2)
-     Where its pitch is             pitch = 2*PI*c
-     Pitch is also height per turn: pitch = height / (twist/360)
-     Solving for c gives                c = height / (twist*PI/180)
-     Where (twist*PI/180) is just twist in radians, aka "T"
-    */
-    inline double helix_arc_length(double r_sqr, double height, double twist) {
-	double T = twist * M_PI / 180.0;
-	double c = height / T;
-	return T * sqrt(r_sqr + c * c);
-    }
-
-
-    index_t Builder::get_helix_slices(
-	double r_sqr, double height, double twist
-    ) const {
-	twist = fabs(twist);
-	// 180 twist per slice is worst case, guaranteed non-manifold.
-	// Make sure we have at least 3 slices per 360 twist
-	int min_slices = std::max(static_cast<int>(ceil(twist / 120.0)), 1);
-	if (sqrt(r_sqr) < GRID_FINE || std::isinf(fn_) || std::isnan(fn_)) {
-	    return min_slices;
-	}
-	if (fn_ > 0.0) {
-	    int fn_slices = static_cast<int>(ceil(twist / 360.0 * fn_));
-	    return std::max(fn_slices, min_slices);
-	}
-	int fa_slices = static_cast<int>(ceil(twist / fa_));
-	int fs_slices = static_cast<int>(
-	    ceil(helix_arc_length(r_sqr, height, twist) / fs_)
-	);
-	return index_t(std::max(std::min(fa_slices, fs_slices), min_slices));
-    }
-
-    /*
-      For linear_extrude with twist and uniform scale (scale_x == scale_y),
-      to calculate the limit imposed by special variable $fs, we find the
-      total length along the path that a vertex would follow.
-      The XY-projection of this path is a section of the Archimedes Spiral.
-      https://mathworld.wolfram.com/ArchimedesSpiral.html
-      Using the formula for its arc length, then pythagorean theorem with height
-      should tell us the total distance a vertex covers.
-    */
-    inline double archimedes_length(double a, double theta) {
-	return 0.5 * a * (theta * sqrt(1 + theta * theta) + asinh(theta));
-    }
-
-    index_t Builder::get_conical_helix_slices(
-	double r_sqr, double height, double twist, double scale
-    ) const {
-	twist = fabs(twist);
-	double r = sqrt(r_sqr);
-	int min_slices = std::max(static_cast<int>(ceil(twist / 120.0)), 1);
-	if (r < GRID_FINE || std::isinf(fn_) || std::isnan(fn_)) {
-	    return static_cast<index_t>(min_slices);
-	}
-	if (fn_ > 0.0) {
-	    int fn_slices = static_cast<int>(ceil(twist * fn_ / 360));
-	    return static_cast<index_t>(std::max(fn_slices, min_slices));
-	}
-
-  /*
-     Spiral length equation assumes starting from theta=0
-     Our twist+scale only covers a section of this length (unless scale=0).
-     Find the start and end angles that our twist+scale correspond to.
-     Use similar triangles to visualize cross-section of single vertex,
-     with scale extended to 0 (origin).
-
-     (scale < 1)        (scale > 1)
-                        ______t_  1.5x (Z=h)
-     0x                |    | /
-   |\                  |____|/
-   | \                 |    / 1x  (Z=0)
-   |  \                |   /
-   |___\ 0.66x (Z=h)   |  /       t is angle of our arc section (twist, in rads)
-   |   |\              | /        E is angle_end (total triangle base length)
-   |___|_\  1x (Z=0)   |/ 0x      S is angle_start
-         t
-
-     E = t*1/(1-0.66)=3t E = t*1.5/(1.5-1)  = 3t
-     B = E - t            B = E - t
-   */
-	double rads = twist * M_PI / 180.0;
-	double angle_end;
-	if (scale > 1) {
-	    angle_end = rads * scale / (scale - 1);
-	} else if (scale < 1) {
-	    angle_end = rads / (1 - scale);
-	} else {
-	    csg_assert_not_reached;
-	    // Don't calculate conical slices on non-scaled extrude!
-	}
-	double angle_start = angle_end - rads;
-	double a = r / angle_end; // spiral scale coefficient
-	double spiral_length =
-	    archimedes_length(a, angle_end) - archimedes_length(a, angle_start);
-	// Treat (flat spiral_length,extrusion height) as (base,height) of
-	// a right triangle to get diagonal length.
-	double total_length = sqrt(
-	    spiral_length * spiral_length + height * height
-	);
-
-	int fs_slices = static_cast<int>(ceil(total_length / fs_));
-	int fa_slices = static_cast<int>(ceil(twist / fa_));
-	return static_cast<index_t>(
-	    std::max(std::min(fa_slices, fs_slices), min_slices)
-	);
-    }
-
-/*
-    For linear_extrude with non-uniform scale (and no twist)
-    Either use $fn directly as slices,
-    or divide the longest diagonal vertex extrude path by $fs
-
-    dr_sqr - the largest 2D delta (before/after scaling) for all vertices,
-       squared.
-    note: $fa is not considered since no twist
-          scale is not passed in since it was already used to calculate
-	  the largest delta.
- */
-    index_t Builder::get_diagonal_slices(double delta_sqr, double height) const {
-	constexpr int min_slices = 1;
-	if (sqrt(delta_sqr) < GRID_FINE || std::isinf(fn_) || std::isnan(fn_)) {
-	    return static_cast<index_t>(min_slices);
-	}
-	if (fn_ > 0.0) {
-	    int fn_slices = static_cast<int>(fn_);
-	    return static_cast<index_t>(std::max(fn_slices, min_slices));
-	}
-	int fs_slices = static_cast<int>(
-	    ceil(sqrt(delta_sqr + height * height) / fs_)
-	);
-	return static_cast<index_t>(std::max(fs_slices, min_slices));
-    }
-
-/******************************************************************************/
 
     void Builder::sweep(
 	std::shared_ptr<Mesh> M,
