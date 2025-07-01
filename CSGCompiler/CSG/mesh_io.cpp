@@ -280,9 +280,6 @@ namespace {
 	} else {
 	    result = mesh_load_STL_ascii(M, filename);
 	}
-
-	M.merge_duplicated_points();
-
 	return result;
     }
 

@@ -3,6 +3,7 @@
 
 #include <CSG/common.h>
 #include <CSG/builder.h>
+#include <CSG/utils.h>
 
 #include <filesystem>
 #include <map>
@@ -41,77 +42,6 @@ namespace CSG {
     }
 
     protected:
-
-    /****** Value, Arglist **********************************/
-
-    /**
-     * \brief A parsed value in a .csg file
-     * \details Can be a number, a boolean, a 1d array or a 2d array
-     */
-    struct Value {
-        enum Type {NONE, NUMBER, BOOLEAN, ARRAY1D, ARRAY2D, STRING};
-
-        Value();
-        Value(double x);
-        Value(int x);
-        Value(bool x);
-        Value(const std::string& x);
-        std::string to_string() const;
-
-        Type type;
-        bool boolean_val;
-        double number_val;
-        vector<vector<double> > array_val;
-        std::string string_val;
-    };
-
-    /**
-     * \brief A parsed argument list in a .csg file.
-     * \details Stores name-value pairs.
-     */
-    class ArgList {
-    public:
-        typedef std::pair<std::string, Value> Arg;
-
-        index_t size() const {
-            return args_.size();
-        }
-
-        const std::string& ith_arg_name(index_t i) const {
-            csg_assert(i < size());
-            return args_[i].first;
-        }
-
-        const Value& ith_arg_val(index_t i) const {
-            csg_assert(i < size());
-            return args_[i].second;
-        }
-
-        void add_arg(const std::string& name, const Value& value);
-        bool has_arg(const std::string& name) const;
-        const Value& get_arg(const std::string& name) const;
-        double get_arg(const std::string& name,double default_value) const;
-        int get_arg(const std::string& name, int default_value) const;
-        bool get_arg(const std::string& name, bool default_value) const;
-        vec2 get_arg(const std::string& name, vec2 default_value) const;
-        vec3 get_arg(const std::string& name, vec3 default_value) const;
-        vec4 get_arg(const std::string& name, vec4 default_value) const;
-        mat4 get_arg(
-            const std::string& name, const mat4& default_value
-        ) const;
-        std::string get_arg(
-            const std::string& name, const std::string& default_value
-        ) const;
-        std::string get_arg(
-            const std::string& name, const char* default_value
-        ) const {
-	    return get_arg(name, std::string(default_value));
-	}
-
-    private:
-        vector<Arg> args_;
-    };
-
 
     /****** Objects *****************************************/
 

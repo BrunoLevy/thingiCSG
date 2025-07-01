@@ -145,8 +145,8 @@ namespace CSG {
 
             // Ask openscad for help for parsing .scad files !
 	    std::string command =
-		std::string("openscad ") + input_filename.c_str() +
-		" -o " + tmpscad.c_str();
+		std::string("openscad ") + input_filename.string() +
+		" -o " + tmpscad;
 
             if(system(command.c_str())) {
                 Logger::err("CSG") << "Error while running openscad "
@@ -168,7 +168,7 @@ namespace CSG {
             filename_.extension() != ".CSG"
         ) {
             throw std::logic_error(
-                std::string(filename_.c_str()) +
+                filename_.string() +
 		": wrong extension (should be .csg or .CSG)"
             );
         }
@@ -177,7 +177,7 @@ namespace CSG {
 	if(std::filesystem::is_regular_file(filename_)) {
 	    size_t length = std::filesystem::file_size(filename_);
 	    source.resize(length);
-	    FILE* f = fopen(filename_.c_str(),"rb");
+	    FILE* f = fopen(filename_.string().c_str(),"rb");
 	    if(f != nullptr) {
 		size_t read_length = fread(source.data(), 1, length, f);
 		if(read_length != length) {
@@ -192,7 +192,7 @@ namespace CSG {
 
         if(source.length() == 0) {
             throw std::logic_error(
-                std::string(filename_.c_str()) + ": could not open file"
+                filename_.string() + ": could not open file"
             );
         }
 
@@ -454,6 +454,7 @@ namespace CSG {
 	std::string direction = args.get_arg("direction", "ltr");
 	std::string language = args.get_arg("language", "en");
 	std::string script = args.get_arg("script", "latin");
+
 	return builder_->text_with_OpenSCAD(
 	    text, size, font, halign, valign,
 	    spacing, direction, language, script
@@ -482,11 +483,11 @@ namespace CSG {
 
         vec3 scaling(1.0, 1.0, 1.0);
         double default_scaling = 1.0;
+	vec3 minp, maxp;
+	result->get_bbox(minp, maxp);
         for(index_t coord=0; coord<3; ++coord) {
             if(newsize[coord] != 0) {
-		vec3 minp, maxp;
-		result->get_bbox(minp, maxp);
-		scaling = newsize / (maxp - minp);
+		scaling[coord] = newsize[coord] / (maxp[coord] - minp[coord]);
                 default_scaling = scaling[coord];
             }
         }
@@ -627,7 +628,7 @@ namespace CSG {
             Logger::out("CSG") << "Executed " << instr_or_object_name
                                << " at line " << cur_line << "/" << lines_
                                << "  (" << index_t(cur_line*100) /
-		                     std::max(lines_,1u) << "%)"
+		                   std::max(lines_,index_t(1)) << "%)"
                                << std::endl;
         }
 
@@ -718,7 +719,7 @@ namespace CSG {
         return result;
     }
 
-    Compiler::ArgList Compiler::parse_arg_list() {
+    ArgList Compiler::parse_arg_list() {
         ArgList result;
         next_token_check('(');
         for(;;) {
@@ -741,7 +742,7 @@ namespace CSG {
         return result;
     }
 
-    Compiler::Value Compiler::parse_value() {
+    Value Compiler::parse_value() {
         if(lookahead_token().type == '[') {
             return parse_array();
         }
@@ -780,7 +781,7 @@ namespace CSG {
         syntax_error("Expected value", tok);
     }
 
-    Compiler::Value Compiler::parse_array() {
+    Value Compiler::parse_array() {
         Value result;
         result.type = Value::ARRAY1D;
 
@@ -921,7 +922,7 @@ namespace CSG {
             std::logic_error(
                 String::format(
                     "%s:%d %s",
-                    filename_.c_str(), line(), msg
+                    filename_.string().c_str(), line(), msg
                 )
             )
         );
@@ -939,292 +940,6 @@ namespace CSG {
                 )
             )
         );
-    }
-
-    /********* Value and ArgList *********************************************/
-
-    Compiler::Value::Value() : type(NONE) {
-    }
-
-    Compiler::Value::Value(const std::string& x) :
-        type(STRING),
-        string_val(x) {
-    }
-
-    Compiler::Value::Value(double x) :
-        type(NUMBER),
-        number_val(x) {
-    }
-
-    Compiler::Value::Value(int x) :
-        type(NUMBER),
-        number_val(double(x)) {
-    }
-
-    Compiler::Value::Value(bool x) :
-        type(BOOLEAN),
-        boolean_val(x) {
-    }
-
-    std::string Compiler::Value::to_string() const {
-        switch(type) {
-        case NONE:
-            return "<none>";
-        case NUMBER:
-            return String::to_string(number_val);
-        case BOOLEAN:
-            return String::to_string(boolean_val);
-        case ARRAY1D: {
-            std::string result = "[";
-            if(array_val.size() != 0) {
-                for(double v: array_val[0]) {
-                    result += String::to_string(v);
-                    result += " ";
-                }
-            }
-            result += "]";
-            return result;
-        }
-        case ARRAY2D: {
-            std::string result = "[";
-            for(const vector<double>& row : array_val) {
-                result += "[";
-                for(double v: row) {
-                    result += String::to_string(v);
-                    result += " ";
-                }
-                result += "]";
-            }
-            result += "]";
-            return result;
-        }
-        case STRING: {
-            return "\"" + string_val + "\"";
-        }
-        }
-        return "<unknown>";
-    }
-
-    void Compiler::ArgList::add_arg(
-        const std::string& name, const Value& value
-    ) {
-        if(has_arg(name)) {
-            throw(std::logic_error("Duplicated arg:" + name));
-        }
-        args_.push_back(std::make_pair(name,value));
-    }
-
-    bool Compiler::ArgList::has_arg(const std::string& name) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    const Compiler::Value& Compiler::ArgList::get_arg(
-        const std::string& name
-    ) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                return arg.second;
-            }
-        }
-        csg_assert_not_reached;
-    }
-
-    double Compiler::ArgList::get_arg(
-        const std::string& name,double default_value
-    ) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                if(arg.second.type != Value::NUMBER) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong type"
-                          ));
-                }
-                return arg.second.number_val;
-            }
-        }
-        return default_value;
-    }
-
-    int Compiler::ArgList::get_arg(
-	const std::string& name, int default_value
-    ) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                if(arg.second.type != Value::NUMBER) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong type"
-                          ));
-                }
-                if(CSG::round(arg.second.number_val) !=
-                   arg.second.number_val) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong type"
-                          ));
-                }
-                return int(arg.second.number_val);
-            }
-        }
-        return default_value;
-    }
-
-    bool Compiler::ArgList::get_arg(
-        const std::string& name, bool default_value
-    ) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                if(arg.second.type != Value::BOOLEAN) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong type"
-                          ));
-                }
-                return arg.second.boolean_val;
-            }
-        }
-        return default_value;
-    }
-
-    vec2 Compiler::ArgList::get_arg(
-        const std::string& name, vec2 default_value
-    ) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                if(arg.second.type == Value::NUMBER) {
-                    return vec2(
-                        arg.second.number_val,
-                        arg.second.number_val
-                    );
-                } else if(arg.second.type != Value::ARRAY1D) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong type"
-                          ));
-                }
-                if(
-                    arg.second.array_val.size() != 1 ||
-                    arg.second.array_val[0].size() != 2
-                ) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong dimension"
-                          ));
-                }
-                return vec2(
-                    arg.second.array_val[0][0],
-                    arg.second.array_val[0][1]
-                );
-            }
-        }
-        return default_value;
-    }
-
-    vec3 Compiler::ArgList::get_arg(
-        const std::string& name, vec3 default_value
-    ) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                if(arg.second.type != Value::ARRAY1D) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong type"
-                          ));
-                }
-                if(
-                    arg.second.array_val.size() != 1 ||
-                    arg.second.array_val[0].size() != 3
-                ) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong dimension"
-                          ));
-                }
-                return vec3(
-                    arg.second.array_val[0][0],
-                    arg.second.array_val[0][1],
-                    arg.second.array_val[0][2]
-                );
-            }
-        }
-        return default_value;
-    }
-
-    vec4 Compiler::ArgList::get_arg(
-        const std::string& name, vec4 default_value
-    ) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                if(arg.second.type != Value::ARRAY1D) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong type"
-                          ));
-                }
-                if(
-                    arg.second.array_val.size() != 1 ||
-                    arg.second.array_val[0].size() != 4
-                ) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong dimension"
-                          ));
-                }
-                return vec4(
-                    arg.second.array_val[0][0],
-                    arg.second.array_val[0][1],
-                    arg.second.array_val[0][2],
-                    arg.second.array_val[0][3]
-                );
-            }
-        }
-        return default_value;
-    }
-
-    mat4 Compiler::ArgList::get_arg(
-        const std::string& name, const mat4& default_value
-    ) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                if(arg.second.type != Value::ARRAY2D) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong type"
-                          ));
-                }
-                auto Mvv = arg.second.array_val;
-                if(
-                    Mvv.size() != 4 ||
-                    Mvv[0].size() != 4 ||
-                    Mvv[1].size() != 4 ||
-                    Mvv[2].size() != 4 ||
-                    Mvv[3].size() != 4
-                ) {
-                    throw(std::logic_error(
-                              "Matrix arg has wrong dimension"
-                          ));
-                }
-                mat4 result;
-                for(index_t i=0; i<4; ++i) {
-                    for(index_t j=0; j<4; ++j) {
-                        result[i][j] = Mvv[i][j];
-                    }
-                }
-                return result;
-            }
-        }
-        return default_value;
-    }
-
-    std::string Compiler::ArgList::get_arg(
-        const std::string& name, const std::string& default_value
-    ) const {
-        for(const Arg& arg : args_) {
-            if(arg.first == name) {
-                if(arg.second.type != Value::STRING) {
-                    throw(std::logic_error(
-                              "Arg " + name + " has wrong type"
-                          ));
-                }
-                return arg.second.string_val;
-            }
-        }
-        return default_value;
     }
 
 

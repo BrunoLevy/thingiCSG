@@ -1,407 +1,7 @@
 #include <CSG/builder.h>
 #include <CSG/mesh_io.h>
+#include <CSG/utils.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
-
-/******************************************************************************/
-/* Utility functions taken from OpenSCAD/utils/calc.cc                        */
-/******************************************************************************/
-
-namespace Calc {
-
-    // From openscad/Geometry/Grid.h
-    static constexpr double GRID_FINE = 0.00000095367431640625;
-    // This one often misses so I redeclare it here
-    static constexpr double M_DEG2RAD = M_PI / 180.0;
-
-    int get_fragments_from_r_and_twist(
-	double r, double twist, double fn, double fs, double fa
-    ) {
-
-	if (r < GRID_FINE || std::isinf(fn) || std::isnan(fn)) {
-	    return 3u;
-	}
-	if (fn > 0.0) {
-	    return static_cast<int>(fn >= 3 ? fn : 3);
-	}
-	return static_cast<int>(
-	    ceil(fmax(fmin(twist / fa, r * 2.0 * M_PI / fs), 5.0))
-	);
-    }
-
-    int get_fragments_from_r(
-	double r, double fn, double fs, double fa
-    ) {
-	return get_fragments_from_r_and_twist(r, 360.0, fn, fs, fa);
-    }
-
-    /*
-     https://mathworld.wolfram.com/Helix.html
-     For a helix defined as:    F(t) = [r*cost(t), r*sin(t), c*t]  for t in [0,T)
-     The helical arc length is          L = T * sqrt(r^2 + c^2)
-     Where its pitch is             pitch = 2*PI*c
-     Pitch is also height per turn: pitch = height / (twist/360)
-     Solving for c gives                c = height / (twist*PI/180)
-     Where (twist*PI/180) is just twist in radians, aka "T"
-    */
-    double helix_arc_length(double r_sqr, double height, double twist) {
-	double T = twist * M_DEG2RAD;
-	double c = height / T;
-	return T * sqrt(r_sqr + c * c);
-    }
-
-
-    /*!
-     Returns the number of slices for a linear_extrude with twist.
-     Given height, twist, and the three special variables $fn, $fs and $fa
-    */
-    int get_helix_slices(
-	double r_sqr, double height, double twist,
-	double fn, double fs, double fa
-    ) {
-	twist = fabs(twist);
-	// 180 twist per slice is worst case, guaranteed non-manifold.
-	// Make sure we have at least 3 slices per 360 twist
-	int min_slices = std::max(static_cast<int>(ceil(twist / 120.0)), 1);
-	if (sqrt(r_sqr) < GRID_FINE || std::isinf(fn) || std::isnan(fn))
-	    return min_slices;
-	if (fn > 0.0) {
-	    int fn_slices = static_cast<int>(ceil(twist / 360.0 * fn));
-	    return std::max(fn_slices, min_slices);
-	}
-	int fa_slices = static_cast<int>(ceil(twist / fa));
-	int fs_slices = static_cast<int>(
-	    ceil(helix_arc_length(r_sqr, height, twist) / fs)
-	);
-	return std::max(std::min(fa_slices, fs_slices), min_slices);
-    }
-
-   /*
-    For linear_extrude with twist and uniform scale (scale_x == scale_y),
-    to calculate the limit imposed by special variable $fs, we find the
-    total length along the path that a vertex would follow.
-    The XY-projection of this path is a section of the Archimedes Spiral.
-    https://mathworld.wolfram.com/ArchimedesSpiral.html
-    Using the formula for its arc length, then pythagorean theorem with height
-    should tell us the total distance a vertex covers.
-    */
-    double archimedes_length(double a, double theta) {
-	return 0.5 * a * (theta * sqrt(1 + theta * theta) + asinh(theta));
-    }
-
-
-    int get_conical_helix_slices(
-	double r_sqr, double height, double twist, double scale,
-	double fn, double fs, double fa
-    ) {
-	twist = fabs(twist);
-	double r = sqrt(r_sqr);
-	int min_slices = std::max(static_cast<int>(ceil(twist / 120.0)), 1);
-	if (r < GRID_FINE || std::isinf(fn) || std::isnan(fn)) {
-	    return min_slices;
-	}
-	if (fn > 0.0) {
-	    int fn_slices = static_cast<int>(ceil(twist * fn / 360));
-	    return std::max(fn_slices, min_slices);
-	}
-
-     /*
-        Spiral length equation assumes starting from theta=0
-        Our twist+scale only covers a section of this length (unless scale=0).
-        Find the start and end angles that our twist+scale correspond to.
-        Use similar triangles to visualize cross-section of single vertex,
-        with scale extended to 0 (origin).
-
-        (scale < 1)        (scale > 1)
-                           ______t_  1.5x (Z=h)
-       0x                 |    | /
-      |\                  |____|/
-      | \                 |    / 1x  (Z=0)
-      |  \                |   /
-      |___\ 0.66x (Z=h)   |  /     t is angle of our arc section (twist, in rads)
-      |   |\              | /      E is angle_end (total triangle base length)
-      |___|_\  1x (Z=0)   |/ 0x    S is angle_start
-            t
-
-        E = t*1/(1-0.66)=3t E = t*1.5/(1.5-1)  = 3t
-        B = E - t            B = E - t
-      */
-	double rads = twist * M_DEG2RAD;
-	double angle_end;
-	if (scale > 1) {
-	    angle_end = rads * scale / (scale - 1);
-	} else if (scale < 1) {
-	    angle_end = rads / (1 - scale);
-	} else {
-	    assert(
-		false &&
-		"Don't calculate conical slices on non-scaled extrude!"
-	    );
-	}
-	double angle_start = angle_end - rads;
-	double a = r / angle_end; // spiral scale coefficient
-	double spiral_length = archimedes_length(
-	    a, angle_end) - archimedes_length(a, angle_start
-					     );
-	// Treat (flat spiral_length,extrusion height) as (base,height)
-	// of a right triangle to get diagonal length.
-	double total_length = sqrt(
-	    spiral_length * spiral_length + height * height
-	);
-
-	int fs_slices = static_cast<int>(ceil(total_length / fs));
-	int fa_slices = static_cast<int>(ceil(twist / fa));
-	return std::max(std::min(fa_slices, fs_slices), min_slices);
-    }
-
-   /*
-    For linear_extrude with non-uniform scale (and no twist)
-    Either use $fn directly as slices,
-    or divide the longest diagonal vertex extrude path by $fs
-
-    dr_sqr - the largest 2D delta (before/after scaling)
-       for all vertices, squared.
-    note: $fa is not considered since no twist
-          scale is not passed in since it was already used
-  	  to calculate the largest delta.
-    */
-    int get_diagonal_slices(
-	double delta_sqr, double height, double fn, double fs
-    ) {
-	constexpr int min_slices = 1;
-	if (sqrt(delta_sqr) < GRID_FINE || std::isinf(fn) || std::isnan(fn)) {
-	    return min_slices;
-	}
-	if (fn > 0.0) {
-	    int fn_slices = static_cast<int>(fn);
-	    return std::max(fn_slices, min_slices);
-	}
-	int fs_slices = static_cast<int>(
-	    ceil(sqrt(delta_sqr + height * height) / fs)
-	);
-	return std::max(fs_slices, min_slices);
-    }
-
-    // This one is not part of OpenSCAD, I copied it from
-    // extrudePolygon() in geometry/GeometryEvaluator.cc
-    // (with some readaptations / reordering to make it
-    // easier to understand, at least for me)
-    int get_linear_extrusion_slices(
-	std::shared_ptr<CSG::Mesh> M,
-	double height, CSG::vec2 scale, double twist,
-	double fn, double fs, double fa
-    ) {
-
-	if(twist == 0.0 && scale.x == scale.y) {
-	    return 1;
-	}
-
-	double max_r1_sqr = 0.0;  // r1 is before scaling
-	double max_delta_sqr = 0; // delta from before/after scaling
-	for(CSG::index_t iv=0; iv<M->nb_vertices(); ++iv) {
-	    const CSG::vec2& v = M->point_2d(iv);
-	    max_r1_sqr = std::max(max_r1_sqr, CSG::length2(v));
-	    max_delta_sqr = std::max(
-		max_delta_sqr, CSG::length2(v - scale*v)
-	    );
-	}
-
-	if(twist == 0.0) {
-	    return get_diagonal_slices(max_delta_sqr, height, fn, fs);
-	}
-
-	// Calculate Helical curve length for Twist with no Scaling
-	if(scale == CSG::vec2(1.0, 1.0)) {
-	    return get_helix_slices(max_r1_sqr, height, twist, fn, fs, fa);
-	}
-
-	// non uniform scaling with twist using max slices
-	// from twist and non uniform scale
-	if(scale.x != scale.y) {
-	    int slicesNonUniScale = get_diagonal_slices(
-		max_delta_sqr, height, fn, fs
-	    );
-	    int slicesTwist = get_helix_slices(
-		max_r1_sqr, height, twist, fn, fs, fa
-	    );
-	    return std::max(slicesNonUniScale, slicesTwist);
-	}
-
-	// uniform scaling with twist, use conical helix calculation
-	return get_conical_helix_slices(
-	    max_r1_sqr, height, twist, scale.x, fn, fs, fa
-	);
-    }
-
-/******************************************************************************/
-
-}
-
-namespace {
-    using namespace CSG;
-
-    /**
-     * \brief Symbolic constants for sweep()
-     */
-    enum SweepCapping {
-	SWEEP_CAP,
-	SWEEP_POLE,
-	SWEEP_PERIODIC
-    };
-
-    /**
-     * \brief The generalized sweeping operation
-     * \details Used to implement sphere(), cylinder(), linear_extrude() and
-     *  rotate_extrude()
-     * \param[in,out] mesh on entry, a 2D mesh. On exit, a 3D mesh. The triangles
-     *  present in the mesh are used to generate the caps. They are copied to
-     *  generate the second cap if \p capping is set to SWEEP_CAP (default).
-     * \param[in] nv number of sweeping steps. Minimum is 2.
-     * \param[in] sweep_path a function that maps u,v indices to 3D
-     *  points, where u is the index of a initial 2D vertex and v
-     *  in [0..nv-1] the sweeping step. One can use the point at vertex
-     *  u to evaluate the path (it will not be overwritten before calling
-     *  sweep_path()). Note that u vertices are not necessarily ordered.
-     * \param[in] capping one of:
-     *   - SWEEP_CAP standard sweeping, generate second capping by
-     *     copying first one
-     *   - SWEEP_POLE if last sweeping step degenerates to a
-     *     single point
-     *   - SWEEP_PERIODIC if no cappings should be generated and last
-     *     sweeping step corresponds to first one
-     */
-    template <class PATH> void sweep(
-	std::shared_ptr<Mesh>& M,
-	index_t nv,
-	PATH sweep_path,
-	SweepCapping capping = SWEEP_CAP
-    ) {
-
-	M->set_dimension(2);
-	index_t nu = M->nb_vertices();
-
-	index_t total_nb_vertices;
-	switch(capping) {
-	case SWEEP_CAP: {
-	    total_nb_vertices = nu*nv;
-	} break;
-	case SWEEP_POLE: {
-	    total_nb_vertices = nu*(nv-1)+1;
-	} break;
-	case SWEEP_PERIODIC: {
-	    total_nb_vertices = nu*(nv-1);
-	    M->remove_all_triangles();
-	} break;
-	}
-
-	index_t nt0 = M->nb_triangles();
-
-	M->set_dimension(3);
-	M->create_vertices(total_nb_vertices - nu);
-
-	// Start from 1: do not touch first slice for now, because it
-	// may be used by sweep_path (as the origin of paths)
-	for(index_t v=1; v<nv-1; ++v) {
-	    for(index_t u=0; u<nu; ++u) {
-		M->point_3d(v*nu+u) = sweep_path(u,v);
-	    }
-	}
-
-	// Particular case: last slice
-	switch(capping) {
-	case SWEEP_CAP:
-	    for(index_t u=0; u<nu; ++u) {
-		M->point_3d((nv-1)*nu+u) = sweep_path(u,nv-1);
-	    }
-	    break;
-	case SWEEP_POLE:
-	    M->point_3d((nv-1)*nu) = sweep_path(0,nv-1);
-	    break;
-	case SWEEP_PERIODIC:
-	    // Nothing to do, last slice is same as first slice
-	    break;
-	}
-
-        // Now map first slice
-        for(index_t u=0; u<nu; ++u) {
-	    M->point_3d(u) = sweep_path(u,0);
-	}
-
-	// creates one row of "brick" for the walls
-	auto create_brick_row = [&](index_t v, bool periodic=false) {
-	    index_t v1 = v;
-	    index_t v2 = v1+1;
-	    if(periodic && v2 == nv-1) {
-		v2 = 0;
-	    }
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v1 * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v1 * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = v2 * nu + M->edge_vertex(e,0) ;
-		index_t vx4 = v2 * nu + M->edge_vertex(e,1) ;
-		const vec3& p1 = M->point_3d(vx1);
-		const vec3& p2 = M->point_3d(vx2);
-		const vec3& p3 = M->point_3d(vx3);
-		const vec3& p4 = M->point_3d(vx4);
-		if(length(p3-p2) < length(p4-p1)) {
-		    M->create_triangle(vx1, vx2, vx3);
-		    M->create_triangle(vx3, vx2, vx4);
-		} else {
-		    M->create_triangle(vx1, vx2, vx4);
-		    M->create_triangle(vx1, vx4, vx3);
-		}
-	    }
-	};
-
-	// generate walls (all brick rows except last one)
-	for(index_t v=0; v+2 < nv; ++v) {
-	    create_brick_row(v);
-	}
-
-	// generate walls (last "brick" row, depends on capping mode)
-	switch(capping) {
-	case SWEEP_CAP: {
-	    create_brick_row(nv-2);
-	} break;
-	case SWEEP_POLE: {
-	    index_t v = nv-2;
-	    for(index_t e=0; e < M->nb_edges(); ++e) {
-		index_t vx1 = v * nu + M->edge_vertex(e,0) ;
-		index_t vx2 = v * nu + M->edge_vertex(e,1) ;
-		index_t vx3 = nu * (nv-1);
-		M->create_triangle(vx1, vx2, vx3);
-	    }
-	} break;
-	case SWEEP_PERIODIC: {
-	    create_brick_row(nv-2, true); // periodic
-	} break;
-	}
-
-	// generate second capping
-	if(capping == SWEEP_CAP) {
-	    index_t nt1 = M->nb_triangles();
-	    index_t v_ofs = nu*(nv-1);
-	    M->create_triangles(nt0);
-	    for(index_t t=0; t<nt0; ++t) {
-		M->set_triangle(
-		    t+nt1,
-		    v_ofs + M->triangle_vertex(t,0),
-		    v_ofs + M->triangle_vertex(t,1),
-		    v_ofs + M->triangle_vertex(t,2)
-		);
-	    }
-	}
-
-	// flip initial triangles to generate first capping
-	if(capping == SWEEP_CAP || capping == SWEEP_POLE) {
-	    for(index_t t=0; t<nt0; ++t) {
-		M->flip_triangle(t);
-	    }
-	}
-
-	M->remove_all_edges();
-    }
-}
-
 
 namespace CSG {
 
@@ -462,7 +62,7 @@ namespace CSG {
 	std::shared_ptr<Mesh> M = std::make_shared<Mesh>();
 
 	if(nu == 0) {
-	    nu = index_t(Calc::get_fragments_from_r(r, fn_, fs_, fa_));
+	    nu = index_t(get_fragments_from_r(r, fn_, fs_, fa_));
 	}
 	nu = std::max(nu, index_t(3));
         M->set_dimension(2);
@@ -568,7 +168,7 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::sphere(double r) {
-        index_t nu = index_t(Calc::get_fragments_from_r(r,fn_,fs_,fa_));
+        index_t nu = index_t(get_fragments_from_r(r,fn_,fs_,fa_));
         index_t nv = nu / 2;
 	if(nu >= 5 && (nu & 1) != 0) {
 	    ++nv;
@@ -614,7 +214,7 @@ namespace CSG {
 	double h, double r1, double r2, bool center
     ) {
         index_t nu = index_t(
-	    Calc::get_fragments_from_r(
+	    get_fragments_from_r(
 		std::max(r1,r2),fn_,fs_,fa_
 	    )
 	);
@@ -700,87 +300,53 @@ namespace CSG {
     std::shared_ptr<Mesh> Builder::surface_with_OpenSCAD(
         const std::string& filename, bool center, bool invert
     ) {
-        Logger::out("CSG") << "Handling surface() with OpenSCAD" << std::endl;
-
-        // Generate a simple linear extrusion, so that we can convert to STL
-        // (without it OpenSCAD refuses to create a STL with 2D content)
-        std::ofstream tmp("tmpscad.scad");
-        tmp << "surface(" << std::endl;
-	tmp << "  file=\"" << filename << "\"," << std::endl;
-        tmp << "  center=" << String::to_string(center) << "," << std::endl;
-        tmp << "  invert=" << String::to_string(invert) << std::endl;
-        tmp << ");" << std::endl;
-
-        // Start OpenSCAD and generate output as STL
-        if(system("openscad tmpscad.scad -o tmpscad.stl")) {
-            Logger::warn("CSG") << "Error while running openscad " << std::endl;
-            Logger::warn("CSG") << "(used to generate surface) " << std::endl;
-        }
-
-        // Load STL using our own loader
-	std::shared_ptr<Mesh> result = import("tmpscad.stl");
-
-	//std::filesystem::remove("tmpscad.scad");
-	std::filesystem::remove("tmpscad.stl");
-
+	ArgList args;
+	args.add_arg("file", std::filesystem::path(filename));
+	args.add_arg("center", center);
+	args.add_arg("invert", invert);
+	std::shared_ptr<Mesh> result = call_OpenSCAD(
+	    current_path(), "surface", args
+	);
 	finalize_mesh(result);
         return result;
     }
 
     std::shared_ptr<Mesh> Builder::text_with_OpenSCAD(
-	const std::string& text,
-	double size,
-	const std::string& font,
-	const std::string& halign,
-	const std::string& valign,
-	double spacing,
-	const std::string& direction,
-	const std::string& language,
-	const std::string& script
+	const std::string& text, double size, const std::string& font,
+	const std::string& halign, const std::string& valign,
+	double spacing, const std::string& direction,
+	const std::string& language, const std::string& script
     ) {
-        Logger::out("CSG") << "Handling text() with OpenSCAD" << std::endl;
+	ArgList args;
+	args.add_arg("text", text);
+	args.add_arg("size", size);
+	args.add_arg("font", font);
+	args.add_arg("halign", halign);
+	args.add_arg("valign", valign);
+	args.add_arg("spacing", spacing);
+	args.add_arg("direction", direction);
+	args.add_arg("language", language);
+	args.add_arg("script", script);
+	bool TWO_D=true;
+	std::shared_ptr<Mesh> result = call_OpenSCAD(
+	    current_path(), "text", args, TWO_D
+	);
+	finalize_mesh(result);
+	return result;
+    }
 
-	if(text == "") {
-	    std::shared_ptr<Mesh> result = std::make_shared<Mesh>();
-	    return result;
-	}
-
-        // Generate a simple linear extrusion, so that we can convert to STL
-        // (without it OpenSCAD refuses to create a STL with 2D content)
-        std::ofstream tmp("tmpscad.scad");
-        tmp << "group() {" << std::endl;
-        tmp << "   linear_extrude(height=1.0) {" << std::endl;
-        tmp << "      text(" << std::endl;
-	tmp << "             \"" << text << "\"," << std::endl;
-        tmp << "             size=" << size << "," << std::endl;
-	if(font != "") {
-	    tmp << "             font=\"" << font << "\"," << std::endl;
-	}
-	tmp << "             halign=\"" << halign << "\"," << std::endl;
-	tmp << "             valign=\"" << valign << "\"," << std::endl;
-	tmp << "             spacing=" << spacing << "," << std::endl;
-	tmp << "             direction=\"" << direction << "\"," << std::endl;
-	tmp << "             language=\"" << language<< "\"," << std::endl;
-	tmp << "             script=\"" << script << "\"" << std::endl;
-        tmp << "      );" << std::endl;
-        tmp << "   }" << std::endl;
-        tmp << "}" << std::endl;
-
-        // Start OpenSCAD and generate output as STL
-        if(system("openscad tmpscad.scad -o tmpscad.stl")) {
-            Logger::warn("CSG") << "Error while running openscad " << std::endl;
-            Logger::warn("CSG") << "(used to generate text) " << std::endl;
-        }
-
-        // Load STL using our own loader
-	std::shared_ptr<Mesh> result = import("tmpscad.stl");
-
-
-	std::filesystem::remove("tmpscad.scad");
-	std::filesystem::remove("tmpscad.stl");
-
-        // Delete the facets that are coming from the linear extrusion
-	keep_z0_only(result);
+    std::shared_ptr<Mesh> Builder::import_with_openSCAD(
+        const std::filesystem::path& filepath, const std::string& layer,
+        index_t timestamp
+    ) {
+	ArgList args;
+	args.add_arg("file", filepath);
+	args.add_arg("layer", layer);
+	args.add_arg("timestamp", int(timestamp));
+	bool TWO_D = true;
+	std::shared_ptr<Mesh> result = call_OpenSCAD(
+	    current_path(), "import", args, TWO_D
+	);
 	finalize_mesh(result);
         return result;
     }
@@ -1003,7 +569,7 @@ namespace CSG {
 
         if(slices == 0) {
 	    slices = index_t(
-		Calc::get_linear_extrusion_slices(
+		get_linear_extrusion_slices(
 		    result, height, scale, twist, fn_, fs_, fa_
 		)
 	    );
@@ -1056,7 +622,7 @@ namespace CSG {
 	// Remove edges that are co-linear with rotation axis.
 	// (as well as vertices dangling on rotation axis).
 	{
-	    index_t nb_edges_to_remove;
+	    index_t nb_edges_to_remove=0;
 	    vector<index_t> remove_edges(result->nb_edges(),0);
 	    for(index_t e=0; e<result->nb_edges(); ++e) {
                 index_t v1 = result->edge_vertex(e,0);
@@ -1081,7 +647,7 @@ namespace CSG {
             R = std::max(R, result->point_2d(v).x);
         }
         index_t slices = index_t(
-	    Calc::get_fragments_from_r_and_twist(R,angle,fn_,fs_,fa_)
+	    get_fragments_from_r_and_twist(R,angle,fn_,fs_,fa_)
 	);
 	index_t nv = slices+1;
 
@@ -1228,77 +794,6 @@ namespace CSG {
 	    }
 	}
 	return false;
-    }
-
-    std::shared_ptr<Mesh> Builder::import_with_openSCAD(
-        const std::filesystem::path& filepath, const std::string& layer,
-        index_t timestamp
-    ) {
-
-	std::shared_ptr<Mesh> result;
-
-        std::filesystem::path path = filepath;
-	path.remove_filename();
-
-	std::filesystem::path base = filepath.filename();
-	base.replace_extension("");
-
-	std::string extension = filepath.extension().string().substr(1);
-
-	std::filesystem::path geogram_filepath =
-	    path / std::filesystem::path(
-		std::string("geogram_") + base.c_str() + "_" + extension + "_"
-		+ layer + "_" +  String::to_string(timestamp) + ".stl"
-	    );
-
-	if(std::filesystem::is_regular_file(geogram_filepath)) {
-	    return import(geogram_filepath);
-	}
-
-        Logger::out("CSG") << "Did not find " << geogram_filepath << std::endl;
-        Logger::out("CSG") << "Trying to create it with OpenSCAD" << std::endl;
-
-        // Generate a simple linear extrusion, so that we can convert to STL
-        // (without it OpenSCAD refuses to create a STL with 2D content)
-        std::ofstream tmp("tmpscad.scad");
-        tmp << "group() {" << std::endl;
-        tmp << "   linear_extrude(height=1.0) {" << std::endl;
-        tmp << "      import(" << std::endl;
-        tmp << "          file = \"" << filepath.c_str() << "\"," << std::endl;
-        tmp << "          layer = \"" << layer << "\"," << std::endl;
-        tmp << "          timestamp = " << timestamp << std::endl;
-        tmp << "      );" << std::endl;
-        tmp << "   }" << std::endl;
-        tmp << "}" << std::endl;
-
-        // Start OpenSCAD and generate output as STL
-        if(system("openscad tmpscad.scad -o tmpscad.stl")) {
-            Logger::warn("CSG") << "Error while running openscad " << std::endl;
-            Logger::warn("CSG") << "(used to import " << filepath << ")"
-                                << std::endl;
-        }
-
-        // Load STL using our own loader
-        result = import("tmpscad.stl");
-
-        std::filesystem::remove("tmpscad.scad");
-	std::filesystem::remove("tmpscad.stl");
-
-        // Delete the facets that are coming from the linear extrusion
-        vector<index_t> delete_f(result->nb_triangles(), 0);
-        for(index_t t=0; t<result->nb_triangles(); ++t) {
-            for(index_t lv=0; lv<3; ++lv) {
-                index_t v = result->triangle_vertex(t,lv);
-                if(result->point(v).z != 0.0) {
-                    delete_f[t] = 1;
-                }
-            }
-        }
-        result->remove_triangles(delete_f);
-        mesh_save(*result, geogram_filepath);
-        result->set_dimension(2);
-
-        return result;
     }
 
     void Builder::do_CSG(

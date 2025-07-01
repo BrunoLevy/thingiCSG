@@ -278,8 +278,8 @@ namespace CSG {
     }
 
 
-    //protected:
-    public:
+    protected:
+
     /**** Lower-level functions ****/
 
     /**
@@ -362,6 +362,11 @@ namespace CSG {
      * \see Mesh::set_cached_information(), Mesh::get_cached_information()
      */
     virtual void finalize_mesh(std::shared_ptr<Mesh>& mesh);
+
+    const std::filesystem::path& current_path() {
+	csg_assert(file_path_.size() != 0);
+	return *(file_path_.rbegin());
+    }
 
     protected:
     index_t max_arity_;
