@@ -130,69 +130,10 @@ namespace CSG {
         // so that import() instructions are able to find files in the same
         // directory.
         builder_->push_file_path(input_filename.parent_path());
-
-        if(
-            input_filename.extension() == ".scad" ||
-            input_filename.extension() == ".SCAD"
-        ) {
-            std::shared_ptr<Mesh> result;
-
-            Logger::out("CSG") << "Converting scad file using openscad"
-                               << std::endl;
-
-	    std::string tmpscad =
-		std::filesystem::current_path() / "tmpscad.csg";
-
-            // Ask openscad for help for parsing .scad files !
-	    std::string command =
-		std::string("openscad ") + input_filename.string() +
-		" -o " + tmpscad;
-
-            if(system(command.c_str())) {
-                Logger::err("CSG") << "Error while running openscad "
-                                   << std::endl;
-                Logger::err("CSG") << "(used to parse " << input_filename << ")"
-                                   << std::endl;
-                return result;
-            }
-
-            result = compile_file(tmpscad);
-	    std::filesystem::remove(tmpscad);
-	    builder_->pop_file_path();
-            return result;
-        }
-
-        filename_ = input_filename;
-        if(
-            filename_.extension() != ".csg" &&
-            filename_.extension() != ".CSG"
-        ) {
-            throw std::logic_error(
-                filename_.string() +
-		": wrong extension (should be .csg or .CSG)"
-            );
-        }
-
-	std::string source;
-	if(std::filesystem::is_regular_file(filename_)) {
-	    size_t length = std::filesystem::file_size(filename_);
-	    source.resize(length);
-	    FILE* f = fopen(filename_.string().c_str(),"rb");
-	    if(f != nullptr) {
-		size_t read_length = fread(source.data(), 1, length, f);
-		if(read_length != length) {
-		    Logger::err("FileSystem")
-			<< "Problem occured when reading "
-			<< filename_
-			<< std::endl;
-		}
-		fclose(f);
-	    }
-	}
-
+	std::string source = load_OpenSCAD(input_filename);
         if(source.length() == 0) {
             throw std::logic_error(
-                filename_.string() + ": could not open file"
+                filename_.string() + ": could not open file (or file is empty)"
             );
         }
 

@@ -62,7 +62,7 @@ namespace CSG {
     );
 
     virtual std::shared_ptr<Mesh> surface_with_OpenSCAD(
-        const std::string& filename, bool center, bool invert
+        const std::filesystem::path& filename, bool center, bool invert
     );
 
     virtual std::shared_ptr<Mesh> text_with_OpenSCAD(
@@ -324,14 +324,14 @@ namespace CSG {
      * \brief Triangulates a 2D mesh.
      * \details Computes a constrained Delaunay triangulation from the edges
      *  of the mesh, then classifies the triangles using a boolean expression.
-     *  Each edge has an "operand bit" indicating to which input operand
+     *  Each edge needs an "operand bit" indicating to which input operand
      *  it belongs to, set to (1u << operand_id). Used to implement
      *  CSG operations in 2D.
      * \param[in,out] mesh the input is a set of vertices and edges.
      *   The output has a set of triangles inside the polygons defined by
      *   the edges.
-     * \param[in] boolean_expr the operation to be applied, can be one of
-     *   - "union"
+     * \param[in] boolean_expr optional operation to be applied, can be one of
+     *   - "union" (default)
      *   - "intersection"
      *   - a general boolean expression, where:
      *      - variables are x0 ... x31 (they correspond to input operands)
@@ -344,16 +344,8 @@ namespace CSG {
      *     it is limited to 32). It is used to implement projection(cut=false).
      */
     virtual void triangulate(
-        std::shared_ptr<Mesh>& mesh, const std::string& boolean_expr
+        std::shared_ptr<Mesh>& mesh, const std::string& boolean_expr = "union"
     );
-
-    /**
-     * \brief keeps only triangles and vertices embedded in the z=0 plane, and
-     *  makes the mesh 2D.
-     * \details This also computes the border and re-triangulates it.
-     * \param[in,out] M a shared pointer to the mesh
-     */
-    void keep_z0_only(std::shared_ptr<Mesh>& M);
 
     /**
      * \brief Derived classes may override this function and compute

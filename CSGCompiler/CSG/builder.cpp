@@ -283,6 +283,13 @@ namespace CSG {
             mesh_load(*result,full_filename);
         }
 
+        if(
+	    full_filename.extension() == ".stl" ||
+	    full_filename.extension() == ".STL"
+	) {
+	    result->merge_duplicated_points();
+	}
+
         // Apply origin and scale, triangulate
 	if(result->dimension() == 2) {
 	    for(index_t v=0; v<result->nb_vertices(); ++v) {
@@ -290,7 +297,10 @@ namespace CSG {
 		result->point_2d(v) = (p - origin) * scale;
 	    }
 	    result->compute_borders();
-	    triangulate(result, "union");
+	    for(index_t b=0; b<result->nb_edges(); ++b) {
+		result->set_edge_operand_bits(b,index_t(1));
+	    }
+	    triangulate(result);
 	}
 
         finalize_mesh(result);
@@ -298,15 +308,21 @@ namespace CSG {
     }
 
     std::shared_ptr<Mesh> Builder::surface_with_OpenSCAD(
-        const std::string& filename, bool center, bool invert
+        const std::filesystem::path& filename, bool center, bool invert
     ) {
+	std::shared_ptr<Mesh> result;
+        std::filesystem::path full_filename = filename;
+        if(!find_file(full_filename)) {
+            Logger::err("CSG") << filename << ": file not found"
+                               << std::endl;
+	    result = std::make_shared<Mesh>();
+            return result;
+        }
 	ArgList args;
-	args.add_arg("file", std::filesystem::path(filename));
+	args.add_arg("file", full_filename);
 	args.add_arg("center", center);
 	args.add_arg("invert", invert);
-	std::shared_ptr<Mesh> result = call_OpenSCAD(
-	    current_path(), "surface", args
-	);
+	result = call_OpenSCAD(current_path(), "surface", args);
 	finalize_mesh(result);
         return result;
     }
@@ -706,6 +722,11 @@ namespace CSG {
             scope2.push_back(C);
             result = difference(scope2);
 	    keep_z0_only(result);
+	    result->compute_borders();
+	    for(index_t e=0; e<result->nb_edges(); ++e) {
+		result->set_edge_operand_bits(e,index_t(1));
+	    }
+	    triangulate(result);
         } else {
 	    // Union of all triangles projected in 2D. We project only
 	    // half of them (since we have a closed shape). We select
@@ -752,7 +773,7 @@ namespace CSG {
 	    for(index_t e=0; e<result->nb_edges(); ++e) {
 		result->set_edge_operand_bits(e,1u);
 	    }
-	    triangulate(result,"union");
+	    triangulate(result);
         }
 	finalize_mesh(result);
         return result;
@@ -803,7 +824,7 @@ namespace CSG {
 	    triangulate(mesh, boolean_expr);  // has all intersections inside
 	    mesh->remove_all_triangles();     // now keep edge borders only
 	    mesh->remove_isolated_vertices(); // then remove internal vertices
-	    triangulate(mesh, "union");       // re-triangulate border edges
+	    triangulate(mesh);                // re-triangulate border edges
 	} else {
 	    // Insert your own mesh boolean operation code here !
 	}
@@ -818,19 +839,11 @@ namespace CSG {
 	mesh->remove_all_triangles();
 	mesh->remove_isolated_vertices();
 
-	bool has_operand_bit = true;
+#ifndef NDEBUG
 	for(index_t e=0; e<mesh->nb_edges(); ++e) {
-	    if(mesh->edge_operand_bits(e) == NO_INDEX) {
-		has_operand_bit = false;
-		break;
-	    }
+	    csg_debug_assert(mesh->edge_operand_bits(e) != NO_INDEX);
 	}
-
-	if(!has_operand_bit) {
-	    for(index_t e=0; e<mesh->nb_edges(); ++e) {
-		mesh->set_edge_operand_bits(e, 1u);
-	    }
-	}
+#endif
 
 	vec3 pmin, pmax;
 	mesh->get_bbox(pmin, pmax);
@@ -889,24 +902,6 @@ namespace CSG {
 	for(index_t e=0; e<mesh->nb_edges(); ++e) {
 	    mesh->set_edge_operand_bits(e,1u);
 	}
-    }
-
-    void Builder::keep_z0_only(std::shared_ptr<Mesh>& M) {
-	vector<index_t> remove_triangle(M->nb_triangles(),0);
-	for(index_t t=0; t<M->nb_triangles(); ++t) {
-	    for(index_t lv=0; lv<3; ++lv) {
-		const vec3& p = M->point_3d(M->triangle_vertex(t,lv));
-		if(p.z != 0.0) {
-		    remove_triangle[t] = 1;
-		    break;
-		}
-	    }
-	}
-	M->remove_triangles(remove_triangle);
-	M->remove_isolated_vertices();
-	M->compute_borders();
-	M->set_dimension(2);
-	triangulate(M,"union");
     }
 
     void Builder::finalize_mesh(std::shared_ptr<Mesh>& M) {

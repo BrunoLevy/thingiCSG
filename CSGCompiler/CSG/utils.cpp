@@ -28,6 +28,7 @@ namespace CSG {
     std::string Value::to_string() const {
         switch(type) {
         case NUMBER: {
+	    // We do not want trailing .000 for integers
 	    return (ceil(number_val) == number_val)
 		? String::to_string(int(number_val))
 		: String::to_string(number_val);
@@ -411,11 +412,29 @@ namespace CSG {
 
 	M->remove_all_edges();
     }
+
+    void keep_z0_only(std::shared_ptr<Mesh>& M) {
+	vector<index_t> remove_triangle(M->nb_triangles(),0);
+	for(index_t t=0; t<M->nb_triangles(); ++t) {
+	    for(index_t lv=0; lv<3; ++lv) {
+		const vec3& p = M->point_3d(M->triangle_vertex(t,lv));
+		if(p.z != 0.0) {
+		    remove_triangle[t] = 1;
+		    break;
+		}
+	    }
+	}
+	M->remove_triangles(remove_triangle);
+	M->remove_isolated_vertices();
+    }
 }
 
 /*************************************************************************/
 
 namespace CSG {
+
+    /** \brief subdirectory with all cached files converted by OpenSCAD */
+    static const char* OpenSCache = "OpenSCache";
 
     std::shared_ptr<CSG::Mesh> call_OpenSCAD(
 	const std::filesystem::path& path, const std::string& command,
@@ -456,7 +475,7 @@ namespace CSG {
 	std::replace(mangled.begin(), mangled.end(), '\\', '!');
 
 	std::filesystem::path tmp = std::filesystem::temp_directory_path();
-	std::filesystem::path cache_path = path / "OpenSCache";
+	std::filesystem::path cache_path = path / OpenSCache;
 	if(!std::filesystem::is_directory(cache_path)) {
 	    std::filesystem::create_directory(cache_path);
 	}
@@ -516,24 +535,69 @@ namespace CSG {
 	// have a 3D result (else OpenSCAD does not output anything),
 	// so we need to remove these additional triangles
 	if(TWO_D) {
-	    vector<index_t> remove_triangle(result->nb_triangles(),0);
-	    for(index_t t=0; t<result->nb_triangles(); ++t) {
-		for(index_t lv=0; lv<3; ++lv) {
-		    const vec3& p =
-			result->point_3d(result->triangle_vertex(t,lv));
-		    if(p.z != 0.0) {
-			remove_triangle[t] = 1;
-			break;
-		    }
-		}
-	    }
-	    result->remove_triangles(remove_triangle);
-	    result->remove_isolated_vertices();
-	    result->set_dimension(2);
+	    keep_z0_only(result);
 	}
 	mesh_save(*result,cached_STL);
 	result->merge_duplicated_points();
 	return result;
+    }
+
+    std::string load_OpenSCAD(const std::filesystem::path& input) {
+	if(input.extension() == ".scad" || input.extension() == ".SCAD") {
+	    std::filesystem::path cache_path=input.parent_path() / OpenSCache;
+
+	    if(!std::filesystem::is_directory(cache_path)) {
+		std::filesystem::create_directory(cache_path);
+	    }
+
+	    std::filesystem::path cached_csg =
+		cache_path / input.filename().replace_extension(".csg");
+
+	    if(!std::filesystem::is_regular_file(cached_csg)) {
+		Logger::out("CSG") << "Converting " << input << " with OpenSCAD"
+				   << std::endl;
+		std::string openscad_command = "openscad "
+		    + input.string() + " -o " + cached_csg.string() ;
+		if(system(openscad_command.c_str())) {
+		    Logger::warn("CSG") << "Error while running openscad "
+					<< std::endl;
+		    Logger::warn("CSG") << "(for converting: " << input << ") "
+					<< std::endl;
+		    return "";
+		}
+		if(std::filesystem::is_regular_file(cached_csg)) {
+		    Logger::out("CSG") << "Created " << cached_csg << std::endl;
+		} else {
+		    Logger::out("CSG") << "Could not create"
+				       << cached_csg << std::endl;
+		}
+	    } else {
+		Logger::out("CSG") << "Using cached " << cached_csg << std::endl;
+	    }
+	    return load_OpenSCAD(cached_csg);
+	}
+
+	if(input.extension() == ".csg" || input.extension() == ".CSG") {
+	    std::string source;
+	    if(std::filesystem::is_regular_file(input)) {
+		size_t length = std::filesystem::file_size(input);
+		source.resize(length);
+		FILE* f = fopen(input.string().c_str(),"rb");
+		if(f != nullptr) {
+		    size_t read_length = fread(source.data(), 1, length, f);
+		    if(read_length != length) {
+			Logger::err("CSG")
+			    << "Problem occured when reading "
+			    << input
+			    << std::endl;
+		    }
+		    fclose(f);
+		}
+	    }
+	    return source;
+	}
+	Logger::err("CSG") << "Unknown extension: " << input << std::endl;
+	return "";
     }
 }
 

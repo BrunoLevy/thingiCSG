@@ -118,14 +118,23 @@ namespace CSG {
 	SweepCapping capping = SWEEP_CAP
     );
 
+    /**
+     * \brief keeps only triangles and vertices embedded in the z=0 plane, and
+     *  makes the mesh 2D.
+     * \param[in,out] M a shared pointer to the mesh
+     */
+    void CSG_API keep_z0_only(std::shared_ptr<Mesh>& M);
+
     /**********************************************************************/
     /**** Call OpenSCAD for help (and cache result)                    ****/
     /**********************************************************************/
 
-    std::shared_ptr<CSG::Mesh> call_OpenSCAD(
+    std::shared_ptr<CSG::Mesh> CSG_API call_OpenSCAD(
 	const std::filesystem::path& path, const std::string& command,
 	const ArgList& args, bool TWO_D=false
     );
+
+    std::string CSG_API load_OpenSCAD(const std::filesystem::path& filename);
 
     /**********************************************************************/
     /**** Functions to estimate number of fragments and slices,        ****/
