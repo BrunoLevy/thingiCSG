@@ -290,16 +290,30 @@ namespace CSG {
 	    result->merge_duplicated_points();
 	}
 
+
+	if(result->dimension() == 3) {
+	    bool z_all_zero = true;
+	    for(index_t v = 0; v<result->nb_vertices(); ++v) {
+		if(result->point_3d(v).z != 0.0) {
+		    z_all_zero = false;
+		    break;
+		}
+	    }
+	    if(z_all_zero) {
+		result->set_dimension(2);
+	    }
+	}
+
+
+
         // Apply origin and scale, triangulate
+	// (note: mesh_load() already sets dimension to 2 if all z's are zero)
 	if(result->dimension() == 2) {
 	    for(index_t v=0; v<result->nb_vertices(); ++v) {
 		vec2 p = result->point_2d(v);
 		result->point_2d(v) = (p - origin) * scale;
 	    }
 	    result->compute_borders();
-	    for(index_t b=0; b<result->nb_edges(); ++b) {
-		result->set_edge_operand_bits(b,index_t(1));
-	    }
 	    triangulate(result);
 	}
 
@@ -723,9 +737,6 @@ namespace CSG {
             result = difference(scope2);
 	    keep_z0_only(result);
 	    result->compute_borders();
-	    for(index_t e=0; e<result->nb_edges(); ++e) {
-		result->set_edge_operand_bits(e,index_t(1));
-	    }
 	    triangulate(result);
         } else {
 	    // Union of all triangles projected in 2D. We project only
@@ -770,9 +781,6 @@ namespace CSG {
 	    result->set_dimension(2);
 	    triangulate(result,"union_cnstr_operand_bits_is_operand_id");
 	    result->compute_borders();
-	    for(index_t e=0; e<result->nb_edges(); ++e) {
-		result->set_edge_operand_bits(e,1u);
-	    }
 	    triangulate(result);
         }
 	finalize_mesh(result);
@@ -839,6 +847,7 @@ namespace CSG {
 	mesh->remove_all_triangles();
 	mesh->remove_isolated_vertices();
 
+	// Make sure edge operand bits are properly initialized
 #ifndef NDEBUG
 	for(index_t e=0; e<mesh->nb_edges(); ++e) {
 	    csg_debug_assert(mesh->edge_operand_bits(e) != NO_INDEX);
@@ -902,6 +911,13 @@ namespace CSG {
 	for(index_t e=0; e<mesh->nb_edges(); ++e) {
 	    mesh->set_edge_operand_bits(e,1u);
 	}
+    }
+
+    void Builder::triangulate(std::shared_ptr<Mesh>& mesh) {
+	for(index_t e=0; e<mesh->nb_edges(); ++e) {
+	    mesh->set_edge_operand_bits(e,index_t(1));
+	}
+	triangulate(mesh, "union");
     }
 
     void Builder::finalize_mesh(std::shared_ptr<Mesh>& M) {

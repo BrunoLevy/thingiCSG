@@ -332,20 +332,6 @@ namespace CSG {
 			      << ": Unknown load extension"
 			      << std::endl;
 	}
-
-	if(result) {
-	    bool z_all_zero = true;
-	    for(index_t v = 0; v<M.nb_vertices(); ++v) {
-		if(M.point_3d(v).z != 0.0) {
-		    z_all_zero = false;
-		    break;
-		}
-	    }
-	    if(z_all_zero) {
-		M.set_dimension(2);
-	    }
-	}
-
 	return result;
     }
 
