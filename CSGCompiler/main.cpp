@@ -14,6 +14,10 @@ int main(int argc, char** argv) {
 	"clear_cache", false,
 	"systematically regenerate files converted with OpenSCAD"
     );
+    GEO::CmdLine::declare_arg(
+	"ignore_cache_time", false,
+	"systematically regenerate files converted with OpenSCAD"
+    );
 
     if(
 	!GEO::CmdLine::parse(
@@ -25,7 +29,10 @@ int main(int argc, char** argv) {
 
     try {
 	if(GEO::CmdLine::get_arg_bool("clear_cache")) {
-	    CSG::invalidate_OpenSCAD_cache();
+	    CSG::OpenSCAD_cache_invalidate();
+	}
+	if(GEO::CmdLine::get_arg_bool("ignore_cache_time")) {
+	    CSG::OpenSCAD_cache_ignore_time();
 	}
 	CSG::Compiler compiler;
 	compiler.set_verbose(GEO::CmdLine::get_arg_bool("verbose"));

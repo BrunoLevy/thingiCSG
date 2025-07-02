@@ -436,13 +436,18 @@ namespace {
     /** \brief subdirectory with all cached files converted by OpenSCAD */
     static const char* OpenSCache = "OpenSCache";
 
-    bool invalidate_OpenSCache = false;
+    bool OpenSCache_invalidate = false;
+    bool OpenSCache_ignore_time = false;
 }
 
 namespace CSG {
 
-    void invalidate_OpenSCAD_cache() {
-	invalidate_OpenSCache = true;
+    void OpenSCAD_cache_invalidate() {
+	OpenSCache_invalidate = true;
+    }
+
+    void OpenSCAD_cache_ignore_time() {
+	OpenSCache_ignore_time = true;
     }
 
     std::shared_ptr<CSG::Mesh> call_OpenSCAD(
@@ -493,7 +498,7 @@ namespace CSG {
 
 	// Cached file exists, load it and return it
 	if(
-	    !invalidate_OpenSCache &&
+	    !OpenSCache_invalidate &&
 	    std::filesystem::is_regular_file(cached_STL)
 	) {
 	    Logger::out("CSG")<< "Using cached " << cached_STL << std::endl;
@@ -565,14 +570,18 @@ namespace CSG {
 	    std::filesystem::path cached_csg =
 		cache_path / input.filename().replace_extension(".csg");
 
-	    if(
-		invalidate_OpenSCache ||
-		!std::filesystem::is_regular_file(cached_csg) ||
-		(
+	    bool generate = !std::filesystem::is_regular_file(cached_csg);
+	    if(OpenSCache_invalidate) {
+		generate = true;
+	    }
+	    if(!OpenSCache_ignore_time) {
+		generate = generate || (
 		    std::filesystem::last_write_time(input) >
 		    std::filesystem::last_write_time(cached_csg)
-		)
-	    ) {
+		);
+	    }
+
+	    if(generate) {
 		Logger::out("CSG") << "Converting " << input << " with OpenSCAD"
 				   << std::endl;
 		std::string openscad_command = "openscad "

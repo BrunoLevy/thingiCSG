@@ -133,7 +133,15 @@ namespace CSG {
      * \brief Specifies that starting from now all cached OpenSCAD files
      *  are considered to be out of date and will be re-generated.
      */
-    void CSG_API invalidate_OpenSCAD_cache();
+    void CSG_API OpenSCAD_cache_invalidate();
+
+    /**
+     * \brief Specifies that last modification time should be ignored when
+     *  considering the OpenSCAD cache.
+     * \details It is interesting to do so for testsuites that embark the
+     *  OpenSCached directory for users who cannot install OpenSCAD.
+     */
+    void CSG_API OpenSCAD_cache_ignore_time();
 
     std::shared_ptr<CSG::Mesh> CSG_API call_OpenSCAD(
 	const std::filesystem::path& path, const std::string& command,
