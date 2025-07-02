@@ -355,6 +355,10 @@ namespace CSG {
      */
     virtual void finalize_mesh(std::shared_ptr<Mesh>& mesh);
 
+    /**
+     * \brief Gets the current path
+     * \return the latest directory pushed onto the file path
+     */
     const std::filesystem::path& current_path() {
 	csg_assert(file_path_.size() != 0);
 	return *(file_path_.rbegin());

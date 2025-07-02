@@ -426,6 +426,7 @@ namespace CSG {
 	}
 	M->remove_triangles(remove_triangle);
 	M->remove_isolated_vertices();
+	M->set_dimension(2);
     }
 }
 
@@ -566,7 +567,11 @@ namespace CSG {
 
 	    if(
 		invalidate_OpenSCache ||
-		!std::filesystem::is_regular_file(cached_csg)
+		!std::filesystem::is_regular_file(cached_csg) ||
+		(
+		    std::filesystem::last_write_time(input) >
+		    std::filesystem::last_write_time(cached_csg)
+		)
 	    ) {
 		Logger::out("CSG") << "Converting " << input << " with OpenSCAD"
 				   << std::endl;
