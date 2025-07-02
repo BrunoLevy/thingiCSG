@@ -28,7 +28,9 @@ namespace CSG {
     std::string Value::to_string() const {
         switch(type) {
         case NUMBER: {
-	    return String::to_string(number_val);
+	    return (ceil(number_val) == number_val)
+		? String::to_string(int(number_val))
+		: String::to_string(number_val);
 	}
         case BOOLEAN:
             return String::to_string(boolean_val);
