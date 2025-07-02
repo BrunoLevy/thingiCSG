@@ -5,6 +5,7 @@
 #include <CSG/mesh.h>
 #include <memory>
 #include <filesystem>
+#include <map>
 
 namespace CSG {
 
@@ -14,6 +15,9 @@ namespace CSG {
      *  of meshes.
      */
     typedef vector<std::shared_ptr<Mesh>> Scope;
+
+    class Builder;
+    typedef std::function<std::shared_ptr<Builder>()> BuilderFactory;
 
     /**
      * \brief Implements CSG objects and instructions.
@@ -278,6 +282,22 @@ namespace CSG {
     }
 
 
+    /**
+     * \brief Registers a new type of Builder
+     * \param[in] name the name, to be passed create() or to the
+     *  constructor of Compiler to use a Builder of this type
+     * \tparam BUILDER builder class
+     */
+    template <class BUILDER> static void register_factory(
+	const std::string& name
+    ) {
+	factories_[name] = []()->std::shared_ptr<Builder> {
+	    return std::make_shared<BUILDER>();
+	};
+    }
+
+    static std::shared_ptr<Builder> create(const std::string& name);
+
     protected:
 
     /**** Lower-level functions ****/
@@ -380,6 +400,7 @@ namespace CSG {
     bool verbose_;
     bool warnings_;
     std::vector<std::filesystem::path> file_path_;
+    static std::map<std::string, BuilderFactory> factories_;
 
     friend class Compiler;
     };

@@ -304,8 +304,6 @@ namespace CSG {
 	    }
 	}
 
-
-
         // Apply origin and scale, triangulate
 	// (note: mesh_load() already sets dimension to 2 if all z's are zero)
 	if(result->dimension() == 2) {
@@ -922,5 +920,19 @@ namespace CSG {
 
     void Builder::finalize_mesh(std::shared_ptr<Mesh>& M) {
 	csg_argused(M);
+    }
+
+    std::map<std::string, BuilderFactory> Builder::factories_;
+
+    std::shared_ptr<Builder> Builder::create(const std::string& name) {
+	std::shared_ptr<Builder> result;
+	if(name == "" || name == "default") {
+	    result = std::make_shared<Builder>();
+	}
+	auto it = factories_.find(name);
+	if(it != factories_.end()) {
+	    result = it->second();
+	}
+	return result;
     }
 }

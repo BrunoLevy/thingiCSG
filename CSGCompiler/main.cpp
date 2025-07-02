@@ -1,9 +1,15 @@
 #include <CSG/builder.h>
+#include <CSG/builder_exe.h>
 #include <CSG/compiler.h>
 #include <CSG/mesh_io.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
 
 int main(int argc, char** argv) {
+
+    CSG::Builder::register_factory<CSG::BuilderGeogram0>("geogram0");
+    CSG::Builder::register_factory<CSG::BuilderZhou>("Zhou");
+    CSG::Builder::register_factory<CSG::BuilderCherchi>("Cherchi");
+
     GEO::initialize(GEO::GEOGRAM_INSTALL_ALL);
     GEO::CmdLine::import_arg_group("standard");
     GEO::CmdLine::import_arg_group("algo");
@@ -17,6 +23,10 @@ int main(int argc, char** argv) {
     GEO::CmdLine::declare_arg(
 	"ignore_cache_time", false,
 	"ignore file modification time for deciding to use cache"
+    );
+
+    GEO::CmdLine::declare_arg(
+	"engine", "default", "one of default, Zhou, Cherchi"
     );
 
     if(
@@ -34,7 +44,7 @@ int main(int argc, char** argv) {
 	if(GEO::CmdLine::get_arg_bool("ignore_cache_time")) {
 	    CSG::OpenSCAD_cache_ignore_time();
 	}
-	CSG::Compiler compiler;
+	CSG::Compiler compiler(GEO::CmdLine::get_arg("engine"));
 	compiler.set_verbose(GEO::CmdLine::get_arg_bool("verbose"));
 	std::shared_ptr<CSG::Mesh> result = compiler.compile_file(filenames[0]);
 	if(result != nullptr) {

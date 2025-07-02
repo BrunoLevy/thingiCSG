@@ -17,7 +17,7 @@ namespace CSG {
     class CSG_API Compiler {
     public:
 
-    Compiler();
+    Compiler(const std::string& builder="");
 
     std::shared_ptr<Mesh> compile_file(
 	const std::filesystem::path& input_filename

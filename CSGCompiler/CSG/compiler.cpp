@@ -91,7 +91,7 @@ namespace {
 /******************************************************************************/
 
 namespace CSG {
-    Compiler::Compiler() : lex_(nullptr), lines_(0) {
+    Compiler::Compiler(const std::string& builder) : lex_(nullptr), lines_(0) {
 
 #define DECLARE_OBJECT(obj) object_funcs_[#obj] = &Compiler::obj;
         DECLARE_OBJECT(square);
@@ -120,7 +120,7 @@ namespace CSG {
         instruction_funcs_["union"]  = &Compiler::union_instr;
         instruction_funcs_["render"] = &Compiler::group;
 
-	builder_ = std::make_shared<Builder>();
+	builder_ = Builder::create(builder);
     }
 
     std::shared_ptr<Mesh> Compiler::compile_file(

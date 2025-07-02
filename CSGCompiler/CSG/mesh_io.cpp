@@ -319,20 +319,55 @@ namespace {
 	}
 	return true;
     }
+
+    bool mesh_load_OBJ(
+	Mesh& M, const std::filesystem::path& filename
+    ) {
+	LineInput in(filename);
+	if(!in.OK()) {
+	    return false;
+	}
+
+	M.clear();
+	M.set_dimension(3);
+
+	while(!in.eof() && in.get_line()) {
+	    in.get_fields();
+	    if(in.field_matches(0,"v")) {
+		vec3 p(
+		    in.field_as_double(1),
+		    in.field_as_double(2),
+		    in.field_as_double(3)
+		);
+		M.create_vertex(p);
+	    } else if(in.field_matches(0,"f")) {
+		M.create_triangle(
+		    in.field_as_int(1)-1,
+		    in.field_as_int(2)-1,
+		    in.field_as_int(3)-1
+		);
+	    }
+	}
+	return true;
+    }
+
 }
 
 namespace CSG {
 
     bool mesh_load(Mesh& M, const std::filesystem::path& filename) {
-	bool result = false;
 	if(filename.extension() == ".stl" || filename.extension() == ".STL") {
-	    result = mesh_load_STL(M, filename);
-	} else {
-	    Logger::err("IO") << filename.extension()
-			      << ": Unknown load extension"
-			      << std::endl;
+	    return mesh_load_STL(M, filename);
 	}
-	return result;
+
+	if(filename.extension() == ".obj" || filename.extension() == ".OBJ") {
+	    return mesh_load_OBJ(M, filename);
+	}
+
+	Logger::err("IO") << filename.extension()
+			  << ": Unknown load extension"
+			  << std::endl;
+	return false;
     }
 
     bool mesh_save(const Mesh& M, const std::filesystem::path& filename) {
