@@ -431,10 +431,18 @@ namespace CSG {
 
 /*************************************************************************/
 
-namespace CSG {
-
+namespace {
     /** \brief subdirectory with all cached files converted by OpenSCAD */
     static const char* OpenSCache = "OpenSCache";
+
+    bool invalidate_OpenSCache = false;
+}
+
+namespace CSG {
+
+    void invalidate_OpenSCAD_cache() {
+	invalidate_OpenSCache = true;
+    }
 
     std::shared_ptr<CSG::Mesh> call_OpenSCAD(
 	const std::filesystem::path& path, const std::string& command,
@@ -483,7 +491,10 @@ namespace CSG {
 	std::filesystem::path cached_STL = cache_path / (mangled + ".stl");
 
 	// Cached file exists, load it and return it
-	if(std::filesystem::is_regular_file(cached_STL)) {
+	if(
+	    !invalidate_OpenSCache &&
+	    std::filesystem::is_regular_file(cached_STL)
+	) {
 	    Logger::out("CSG")<< "Using cached " << cached_STL << std::endl;
 	    mesh_load(*result, cached_STL);
 	    result->merge_duplicated_points();
@@ -553,7 +564,10 @@ namespace CSG {
 	    std::filesystem::path cached_csg =
 		cache_path / input.filename().replace_extension(".csg");
 
-	    if(!std::filesystem::is_regular_file(cached_csg)) {
+	    if(
+		invalidate_OpenSCache ||
+		!std::filesystem::is_regular_file(cached_csg)
+	    ) {
 		Logger::out("CSG") << "Converting " << input << " with OpenSCAD"
 				   << std::endl;
 		std::string openscad_command = "openscad "

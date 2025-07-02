@@ -129,6 +129,12 @@ namespace CSG {
     /**** Call OpenSCAD for help (and cache result)                    ****/
     /**********************************************************************/
 
+    /**
+     * \brief Specifies that starting from now all cached OpenSCAD files
+     *  are considered to be out of date and will be re-generated.
+     */
+    void CSG_API invalidate_OpenSCAD_cache();
+
     std::shared_ptr<CSG::Mesh> CSG_API call_OpenSCAD(
 	const std::filesystem::path& path, const std::string& command,
 	const ArgList& args, bool TWO_D=false

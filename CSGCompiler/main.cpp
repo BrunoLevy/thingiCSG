@@ -10,6 +10,10 @@ int main(int argc, char** argv) {
     std::vector<std::string> filenames;
 
     GEO::CmdLine::declare_arg("verbose", false, "log CSG tree parsing");
+    GEO::CmdLine::declare_arg(
+	"clear_cache", false,
+	"systematically regenerate files converted with OpenSCAD"
+    );
 
     if(
 	!GEO::CmdLine::parse(
@@ -20,6 +24,9 @@ int main(int argc, char** argv) {
     }
 
     try {
+	if(GEO::CmdLine::get_arg_bool("clear_cache")) {
+	    CSG::invalidate_OpenSCAD_cache();
+	}
 	CSG::Compiler compiler;
 	compiler.set_verbose(GEO::CmdLine::get_arg_bool("verbose"));
 	std::shared_ptr<CSG::Mesh> result = compiler.compile_file(filenames[0]);
