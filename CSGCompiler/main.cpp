@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
     );
     GEO::CmdLine::declare_arg(
 	"ignore_cache_time", false,
-	"systematically regenerate files converted with OpenSCAD"
+	"ignore file modification time for deciding to use cache"
     );
 
     if(
