@@ -14,7 +14,6 @@ int main(int argc, char** argv) {
     GEO::initialize(GEO::GEOGRAM_INSTALL_ALL);
     GEO::CmdLine::import_arg_group("standard");
     GEO::CmdLine::import_arg_group("algo");
-    std::vector<std::string> filenames;
 
     GEO::CmdLine::declare_arg("verbose", false, "log CSG tree parsing");
     GEO::CmdLine::declare_arg(
@@ -27,11 +26,12 @@ int main(int argc, char** argv) {
     );
 
     GEO::CmdLine::declare_arg(
-	"engine", "default", "one of default, Zhou, Cherchi"
+	"engine", "dummy", "one of dummy, Zhou, Cherchi, geogram0, generic"
     );
 
     CSG::BuilderExe::declare_command_line_args();
 
+    std::vector<std::string> filenames;
     if(
 	!GEO::CmdLine::parse(
 	    argc, argv, filenames, "csgfilename <outputfile|none>"
