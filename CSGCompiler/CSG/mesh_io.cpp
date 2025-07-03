@@ -2,6 +2,22 @@
 #include <CSG/mesh.h>
 #include <CSG/line_stream.h>
 #include <fstream>
+#include <map>
+
+namespace {
+    std::map<std::string, CSG::Loader> loaders_;
+    std::map<std::string, CSG::Saver> savers_;
+}
+
+namespace CSG {
+    void register_loader(Loader L, const std::string extension) {
+	loaders_[extension] = L;
+    }
+
+    void register_saver(Saver S, const std::string extension) {
+	savers_[extension] = S;
+    }
+}
 
 namespace {
     using namespace CSG;
@@ -464,43 +480,51 @@ namespace {
 
 namespace CSG {
 
-    bool mesh_load(Mesh& M, const std::filesystem::path& filename) {
-	if(filename.extension() == ".stl" || filename.extension() == ".STL") {
-	    return mesh_load_STL(M, filename);
+    bool mesh_load(
+	Mesh& M, const std::filesystem::path& filename, bool verbose
+    ) {
+	if(verbose) {
+	    Logger::out("IO") << "Loading " << filename << std::endl;
 	}
 
-	if(filename.extension() == ".obj" || filename.extension() == ".OBJ") {
-	    return mesh_load_OBJ(M, filename);
+	std::string K = String::tolower(filename.extension().string());
+	auto it = loaders_.find(K);
+	if(it != loaders_.end()) {
+	    return it->second(M, filename);
 	}
 
-	if(filename.extension() == ".off" || filename.extension() == ".OFF") {
-	    return mesh_load_OFF(M, filename);
-	}
-
-	Logger::err("IO") << filename.extension()
-			  << ": Unknown load extension"
-			  << std::endl;
+	Logger::err("IO") << K << ": Unknown load extension"  << std::endl;
 	return false;
     }
 
-    bool mesh_save(const Mesh& M, const std::filesystem::path& filename) {
-	Logger::out("IO") << "Saving " << filename << std::endl;
-
-	if(filename.extension() == ".stl" || filename.extension() == ".STL") {
-	    return mesh_save_STL(M, filename);
+    bool mesh_save(
+	const Mesh& M, const std::filesystem::path& filename, bool verbose
+    ) {
+	if(verbose) {
+	    Logger::out("IO") << "Saving " << filename << std::endl;
 	}
 
-	if(filename.extension() == ".obj" || filename.extension() == ".OBJ") {
-	    return mesh_save_OBJ(M, filename);
+	std::string K = String::tolower(filename.extension().string());
+	auto it = savers_.find(K);
+	if(it != savers_.end()) {
+	    return it->second(M, filename);
 	}
 
-	if(filename.extension() == ".off" || filename.extension() == ".OFF") {
-	    return mesh_save_OFF(M, filename);
-	}
-
-	Logger::err("IO") << filename.extension() << ": Unknown write extension"
-			  << std::endl;
+	Logger::err("IO") << K << ": Unknown write extension" << std::endl;
 	return false;
     }
+}
 
+namespace {
+    class CSGMeshIOInit {
+    public:
+	CSGMeshIOInit() {
+	    register_loader(mesh_load_OBJ, ".obj");
+	    register_loader(mesh_load_STL, ".stl");
+	    register_loader(mesh_load_OFF, ".off");
+	    register_saver(mesh_save_OBJ, ".obj");
+	    register_saver(mesh_save_STL, ".stl");
+	    register_saver(mesh_save_OFF, ".off");
+	}
+    } csg_mesh_io_init;
 }

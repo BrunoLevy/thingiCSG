@@ -78,8 +78,8 @@ namespace CSG {
 	std::filesystem::path res =
 	    path / std::filesystem::path("result" + extension_);
 
-	mesh_save(*op1_mesh, op1.string());
-	mesh_save(*op2_mesh, op2.string());
+	mesh_save(*op1_mesh, op1.string(), verbose_);
+	mesh_save(*op2_mesh, op2.string(), verbose_);
 
 	std::string command = executable_ + "  " + String::format(
 	    options.c_str(),
@@ -88,17 +88,28 @@ namespace CSG {
 	    res.string().c_str()
 	);
 
-	Logger::out("CSG") << "Running command" << std::endl;
+	if(verbose_) {
+	    Logger::out("CSG") << "Running command: " << command << std::endl;
+	}
 	if(system(command.c_str())) {
 	    Logger::warn("CSG") << "Error while running external boolean op"
-				<< std::endl;
-	    Logger::warn("CSG") << "(command: " << command <<") "
-				<< std::endl;
+			       << std::endl;
+	    Logger::warn("CSG") << "(command: " << command <<") " << std::endl;
 	}
-	Logger::out("CSG") << "Done command" << std::endl;
+	if(verbose_) {
+	    Logger::out("CSG") << "Done command" << std::endl;
+	}
 
 	std::shared_ptr<Mesh> result = std::make_shared<Mesh>();
 	mesh_load(*result, res.string());
+
+	if(result->nb_vertices() == 0) {
+	    Logger::err("CSG")
+		<< "There is no vertex in the output,"
+		<< "something horrible probably happened..."
+		<< std::endl;
+	    exit(-1);
+	}
 
 	return result;
     }

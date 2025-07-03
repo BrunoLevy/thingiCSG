@@ -1,6 +1,7 @@
 #include <CSG/builder.h>
 #include <CSG/mesh_io.h>
 #include <CSG/utils.h>
+#include <CSG/builder_exe.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
 
 namespace CSG {
@@ -924,13 +925,14 @@ namespace CSG {
     std::map<std::string, BuilderFactory> Builder::factories_;
 
     std::shared_ptr<Builder> Builder::create(const std::string& name) {
+	Logger::out("Builder") << "Creating engine: " << name << std::endl;
 	std::shared_ptr<Builder> result;
-	if(name == "" || name == "default") {
-	    result = std::make_shared<Builder>();
-	}
 	auto it = factories_.find(name);
 	if(it != factories_.end()) {
 	    result = it->second();
+	} else {
+	    Logger::err("Builder") << name << ": no such engine"
+				   << std::endl;
 	}
 	return result;
     }
@@ -1037,6 +1039,17 @@ namespace CSG {
 	csg_assert(scope.size() == 2);
 	return difference_of_two_operands(scope[0], scope[1]);
     }
+}
 
-
+namespace {
+    class CSGBuilderInit {
+    public:
+	CSGBuilderInit() {
+	    CSG::Builder::register_factory<CSG::Builder>("dummy");
+	    CSG::Builder::register_factory<CSG::BuilderExe>("generic");
+	    CSG::Builder::register_factory<CSG::BuilderGeogram0>("geogram0");
+	    CSG::Builder::register_factory<CSG::BuilderZhou>("Zhou");
+	    CSG::Builder::register_factory<CSG::BuilderCherchi>("Cherchi");
+	}
+    } csg_builder_init;
 }

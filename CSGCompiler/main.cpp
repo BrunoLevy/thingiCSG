@@ -6,10 +6,6 @@
 
 int main(int argc, char** argv) {
 
-    CSG::Builder::register_factory<CSG::BuilderExe>("generic");
-    CSG::Builder::register_factory<CSG::BuilderGeogram0>("geogram0");
-    CSG::Builder::register_factory<CSG::BuilderZhou>("Zhou");
-    CSG::Builder::register_factory<CSG::BuilderCherchi>("Cherchi");
 
     GEO::initialize(GEO::GEOGRAM_INSTALL_ALL);
     GEO::CmdLine::import_arg_group("standard");

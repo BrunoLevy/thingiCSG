@@ -195,6 +195,8 @@ namespace CSG {
 #endif
 #endif
         ;
+
+	std::string CSG_API tolower(const std::string& s);
     }
 
     namespace Logger {
