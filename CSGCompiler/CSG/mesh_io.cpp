@@ -382,14 +382,6 @@ namespace {
 		<< M.triangle_vertex(t,2)
 		<< std::endl;
 	}
-	/*
-	for(index_t e=0; e<M.nb_edges(); ++e) {
-	    out << "2 "
-		<< M.edge_vertex(e,0) << " "
-		<< M.edge_vertex(e,1)
-		<< std::endl;
-	}
-	*/
 	return true;
     }
 
@@ -418,7 +410,6 @@ namespace {
 
 	index_t nb_vertices = index_t(in.field_as_int(0));
 	index_t nb_facets = index_t(in.field_as_int(1));
-	index_t nb_edges = index_t(in.field_as_int(2));
 
 	M.create_vertices(nb_vertices);
 	M.create_triangles(nb_facets);

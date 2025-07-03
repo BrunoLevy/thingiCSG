@@ -20,9 +20,10 @@ namespace CSG {
     typedef std::function<std::shared_ptr<Builder>()> BuilderFactory;
 
     /**
-     * \brief Implements CSG objects and instructions.
-     * \details Can be used to construct volumes in C++ with a syntax
-     *  very similar to OpenSCAD .csg files.
+     * \brief Base class that implements CSG objects and instructions.
+     * \details Everything is implemented here except union, intersection
+     *  and difference. One can implement them by overriding the
+     *  do_CSG() function.
      */
     class CSG_API Builder {
     public:
@@ -405,6 +406,36 @@ namespace CSG {
     friend class Compiler;
     };
 
+    /***************************************************************/
+
+    /**
+     * \brief Base class for builders based on boolean operations
+     *  that take two operands
+     * \details Internally multi-operands CSG operations are translated
+     *  into a series of two-operands operations
+     */
+    class CSG_API BuilderWithTwoOperandsBooleanOps : public Builder {
+    public:
+	BuilderWithTwoOperandsBooleanOps();
+	std::shared_ptr<Mesh> union_instr(const Scope& scope) override;
+	std::shared_ptr<Mesh> intersection(const Scope& scope) override;
+	std::shared_ptr<Mesh> difference(const Scope& scope) override;
+    protected:
+	virtual std::shared_ptr<Mesh> union_of_two_operands(
+	    const std::shared_ptr<Mesh>& op1,
+	    const std::shared_ptr<Mesh>& op2
+	) = 0;
+	virtual std::shared_ptr<Mesh> intersection_of_two_operands(
+	    const std::shared_ptr<Mesh>& op1,
+	    const std::shared_ptr<Mesh>& op2
+	) = 0;
+	virtual std::shared_ptr<Mesh> difference_of_two_operands(
+	    const std::shared_ptr<Mesh>& op1,
+	    const std::shared_ptr<Mesh>& op2
+	) = 0;
+    };
+
+    /***************************************************************/
 }
 
 #endif

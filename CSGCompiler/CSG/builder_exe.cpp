@@ -1,76 +1,73 @@
 #include <CSG/builder_exe.h>
 #include <CSG/mesh_io.h>
+#include <geogram.psm.Delaunay/Delaunay_psm.h>
 
 namespace CSG {
 
     BuilderExe::BuilderExe() {
 	max_arity_ = 2;
 	fused_union_difference_ = false;
+	executable_ = GEO::CmdLine::get_arg("generic:executable");
+	union_options_ = GEO::CmdLine::get_arg("generic:union_options");
+	intersection_options_ = GEO::CmdLine::get_arg(
+	    "generic:intersection_options"
+	);
+	difference_options_ = GEO::CmdLine::get_arg(
+	    "generic:difference_options"
+	);
+	extension_ = GEO::CmdLine::get_arg("generic:extension");
     }
 
-    std::shared_ptr<Mesh> BuilderExe::union_instr(const Scope& scope) {
-
-	if(scope.size() != 0 && scope[0]->dimension() == 2) {
-	    max_arity_ = 32;
-	    fused_union_difference_ = true;
-	    std::shared_ptr<Mesh> result = Builder::union_instr(scope);
-	    max_arity_ = 2;
-	    fused_union_difference_ = false;
-	    return result;
-	}
-
-	if(scope.size() > 2) {
-	    return Builder::union_instr(scope);
-	}
-
-	return external_boolean_op(scope, union_options_);
+    void BuilderExe::declare_command_line_args() {
+	GEO::CmdLine::declare_arg_group("generic","options for generic builder");
+	GEO::CmdLine::declare_arg(
+	    "generic:executable", "compute_my_CSG_please",
+	    "external command to execute"
+	);
+	GEO::CmdLine::declare_arg(
+	    "generic:union_options","-union %s %s -o %s",
+	    "options to be passed for union, with placeholders for args"
+	);
+	GEO::CmdLine::declare_arg(
+	    "generic:intersection_options","-intersection %s %s -o %s",
+	    "options to be passed for intersection, with placeholders for args"
+	);
+	GEO::CmdLine::declare_arg(
+	    "generic:difference_options","-difference %s %s -o %s",
+	    "options to be passed for difference, with placeholders for args"
+	);
+	GEO::CmdLine::declare_arg(
+	    "generic:extension",".obj",
+	    "file extension used by external command, appended to all arguments"
+	);
     }
 
-    std::shared_ptr<Mesh> BuilderExe::intersection(const Scope& scope) {
-
-	if(scope.size() != 0 && scope[0]->dimension() == 2) {
-	    max_arity_ = 32;
-	    fused_union_difference_ = true;
-	    std::shared_ptr<Mesh> result = Builder::intersection(scope);
-	    max_arity_ = 2;
-	    fused_union_difference_ = false;
-	    return result;
-	}
-
-	if(scope.size() > 2) {
-	    return Builder::intersection(scope);
-	}
-	return external_boolean_op(scope, intersection_options_);
+    std::shared_ptr<Mesh> BuilderExe::union_of_two_operands(
+	    const std::shared_ptr<Mesh>& op1,
+	    const std::shared_ptr<Mesh>& op2
+    ) {
+	return external_boolean_op(op1, op2, union_options_);
     }
 
-    std::shared_ptr<Mesh> BuilderExe::difference(const Scope& scope) {
+    std::shared_ptr<Mesh> BuilderExe::intersection_of_two_operands(
+	const std::shared_ptr<Mesh>& op1,
+	const std::shared_ptr<Mesh>& op2
+    ) {
+	return external_boolean_op(op1, op2, intersection_options_);
+    }
 
-	if(scope.size() != 0 && scope[0]->dimension() == 2) {
-	    max_arity_ = 32;
-	    fused_union_difference_ = true;
-	    std::shared_ptr<Mesh> result = Builder::difference(scope);
-	    max_arity_ = 2;
-	    fused_union_difference_ = false;
-	    return result;
-	}
-
-	if(scope.size() > 2) {
-	    return Builder::difference(scope);
-	}
-	return external_boolean_op(scope, difference_options_);
+    std::shared_ptr<Mesh> BuilderExe::difference_of_two_operands(
+	const std::shared_ptr<Mesh>& op1,
+	const std::shared_ptr<Mesh>& op2
+    ) {
+	return external_boolean_op(op1, op2, difference_options_);
     }
 
     std::shared_ptr<Mesh> BuilderExe::external_boolean_op(
-	const Scope& scope, const std::string& options
+	const std::shared_ptr<Mesh>& op1_mesh,
+	const std::shared_ptr<Mesh>& op2_mesh,
+	const std::string& options
     ) {
-	csg_assert(scope.size() <= 2);
-	if(scope.size() == 0) {
-	    return std::make_shared<Mesh>();
-	}
-	if(scope.size() == 1) {
-	    return scope[0];
-	}
-
 	std::filesystem::path path = std::filesystem::temp_directory_path();
 	std::filesystem::path op1 =
 	    path / std::filesystem::path("op1" + extension_);
@@ -81,8 +78,8 @@ namespace CSG {
 	std::filesystem::path res =
 	    path / std::filesystem::path("result" + extension_);
 
-	mesh_save(*scope[0], op1.string());
-	mesh_save(*scope[1], op2.string());
+	mesh_save(*op1_mesh, op1.string());
+	mesh_save(*op2_mesh, op2.string());
 
 	std::string command = executable_ + "  " + String::format(
 	    options.c_str(),
@@ -111,9 +108,9 @@ namespace CSG {
 
     BuilderGeogram0::BuilderGeogram0() {
 	executable_ = "boolean_op";
-	union_options_ = "operation=union %s %s %s";
+	union_options_        = "operation=union %s %s %s";
 	intersection_options_ = "operation=intersection %s %s %s";
-	difference_options_ = "operation=difference %s %s %s";
+	difference_options_   = "operation=difference %s %s %s";
 	extension_ = ".obj";
     }
 
@@ -121,9 +118,9 @@ namespace CSG {
 
     BuilderZhou::BuilderZhou() {
 	executable_ = "libigl_609_Boolean";
-	union_options_ = "union %s %s %s";
+	union_options_        = "union %s %s %s";
 	intersection_options_ = "intersection %s %s %s";
-	difference_options_ = "difference %s %s %s";
+	difference_options_   = "difference %s %s %s";
 	extension_ = ".off";
     }
 
@@ -131,9 +128,9 @@ namespace CSG {
 
     BuilderCherchi::BuilderCherchi() {
 	executable_ = "mesh_booleans";
-	union_options_ = "union %s %s %s";
+	union_options_        = "union %s %s %s";
 	intersection_options_ = "intersection %s %s %s";
-	difference_options_ = "subtraction %s %s %s";
+	difference_options_   = "subtraction %s %s %s";
 	extension_ = ".obj";
     }
 

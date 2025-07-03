@@ -6,6 +6,7 @@
 
 int main(int argc, char** argv) {
 
+    CSG::Builder::register_factory<CSG::BuilderExe>("generic");
     CSG::Builder::register_factory<CSG::BuilderGeogram0>("geogram0");
     CSG::Builder::register_factory<CSG::BuilderZhou>("Zhou");
     CSG::Builder::register_factory<CSG::BuilderCherchi>("Cherchi");
@@ -28,6 +29,8 @@ int main(int argc, char** argv) {
     GEO::CmdLine::declare_arg(
 	"engine", "default", "one of default, Zhou, Cherchi"
     );
+
+    CSG::BuilderExe::declare_command_line_args();
 
     if(
 	!GEO::CmdLine::parse(

@@ -305,7 +305,6 @@ namespace CSG {
 	}
 
         // Apply origin and scale, triangulate
-	// (note: mesh_load() already sets dimension to 2 if all z's are zero)
 	if(result->dimension() == 2) {
 	    for(index_t v=0; v<result->nb_vertices(); ++v) {
 		vec2 p = result->point_2d(v);
@@ -935,4 +934,97 @@ namespace CSG {
 	}
 	return result;
     }
+
+    /**********************************************************************/
+
+    BuilderWithTwoOperandsBooleanOps::BuilderWithTwoOperandsBooleanOps() {
+	max_arity_ = 2;
+	fused_union_difference_ = false;
+    }
+
+    std::shared_ptr<Mesh> BuilderWithTwoOperandsBooleanOps::union_instr(
+	const Scope& scope
+    ) {
+	if(scope.size() != 0 && scope[0]->dimension() == 2) {
+	    max_arity_ = 32;
+	    fused_union_difference_ = true;
+	    std::shared_ptr<Mesh> result = Builder::union_instr(scope);
+	    max_arity_ = 2;
+	    fused_union_difference_ = false;
+	    return result;
+	}
+
+	if(scope.size() > 2) {
+	    return Builder::union_instr(scope);
+	}
+
+	if(scope.size() == 0) {
+	    return std::make_shared<Mesh>();
+	}
+
+	if(scope.size() == 1) {
+	    return scope[0];
+	}
+
+	csg_assert(scope.size() == 2);
+	return union_of_two_operands(scope[0], scope[1]);
+    }
+
+    std::shared_ptr<Mesh> BuilderWithTwoOperandsBooleanOps::intersection(
+	const Scope& scope
+    ) {
+	if(scope.size() != 0 && scope[0]->dimension() == 2) {
+	    max_arity_ = 32;
+	    fused_union_difference_ = true;
+	    std::shared_ptr<Mesh> result = Builder::intersection(scope);
+	    max_arity_ = 2;
+	    fused_union_difference_ = false;
+	    return result;
+	}
+
+	if(scope.size() > 2) {
+	    return Builder::intersection(scope);
+	}
+
+	if(scope.size() == 0) {
+	    return std::make_shared<Mesh>();
+	}
+
+	if(scope.size() == 1) {
+	    return scope[0];
+	}
+
+	csg_assert(scope.size() == 2);
+	return intersection_of_two_operands(scope[0], scope[1]);
+    }
+
+    std::shared_ptr<Mesh> BuilderWithTwoOperandsBooleanOps::difference(
+	const Scope& scope
+    ) {
+	if(scope.size() != 0 && scope[0]->dimension() == 2) {
+	    max_arity_ = 32;
+	    fused_union_difference_ = true;
+	    std::shared_ptr<Mesh> result = Builder::difference(scope);
+	    max_arity_ = 2;
+	    fused_union_difference_ = false;
+	    return result;
+	}
+
+	if(scope.size() > 2) {
+	    return Builder::difference(scope);
+	}
+
+	if(scope.size() == 0) {
+	    return std::make_shared<Mesh>();
+	}
+
+	if(scope.size() == 1) {
+	    return scope[0];
+	}
+
+	csg_assert(scope.size() == 2);
+	return difference_of_two_operands(scope[0], scope[1]);
+    }
+
+
 }

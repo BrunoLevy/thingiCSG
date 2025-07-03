@@ -5,16 +5,33 @@
 
 namespace CSG {
 
-    class CSG_API BuilderExe : public Builder {
+    class CSG_API BuilderExe : public BuilderWithTwoOperandsBooleanOps {
     public:
 	BuilderExe();
-	std::shared_ptr<Mesh> union_instr(const Scope& scope) override;
-	std::shared_ptr<Mesh> intersection(const Scope& scope) override;
-	std::shared_ptr<Mesh> difference(const Scope& scope) override;
-	virtual std::shared_ptr<Mesh> external_boolean_op(
-	    const Scope& scope, const std::string& options
-	);
+	static void declare_command_line_args();
+
     protected:
+	std::shared_ptr<Mesh> union_of_two_operands(
+	    const std::shared_ptr<Mesh>& op1,
+	    const std::shared_ptr<Mesh>& op2
+	) override;
+
+	std::shared_ptr<Mesh> intersection_of_two_operands(
+	    const std::shared_ptr<Mesh>& op1,
+	    const std::shared_ptr<Mesh>& op2
+	) override;
+
+	std::shared_ptr<Mesh> difference_of_two_operands(
+	    const std::shared_ptr<Mesh>& op1,
+	    const std::shared_ptr<Mesh>& op2
+	) override;
+
+	virtual std::shared_ptr<Mesh> external_boolean_op(
+	    const std::shared_ptr<Mesh>& op1,
+	    const std::shared_ptr<Mesh>& op2,
+	    const std::string& options
+	);
+
 	std::string executable_;
 	std::string union_options_;
 	std::string intersection_options_;
