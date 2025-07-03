@@ -16,7 +16,8 @@ namespace CSG {
 	double volume;
 
 	// topology
-	bool closed_and_manifold;
+	bool closed;
+	bool manifold;
 	int Xi;
 	index_t nb_components;
 
@@ -24,12 +25,6 @@ namespace CSG {
 	index_t nb_vertices;
 	index_t nb_edges;
 	index_t nb_triangles;
-
-	// mesh quality
-	double min_angle;
-	double max_angle;
-	double avg_angle;
-	double med_angle;
     };
 
 }

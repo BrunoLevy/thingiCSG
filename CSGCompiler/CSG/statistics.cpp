@@ -46,7 +46,8 @@ namespace CSG {
 	}
 	std::sort(edges.begin(), edges.end());
 
-	closed_and_manifold = true;
+	closed = true;
+	manifold = true;
 	nb_edges = 0;
 	nb_vertices = mesh.nb_vertices();
 	nb_triangles = mesh.nb_triangles();
@@ -57,12 +58,13 @@ namespace CSG {
 	    while(e != edges.end() && *e == *b) {
 		++e;
 	    }
-	    closed_and_manifold = closed_and_manifold && (e-b == 2);
+	    closed = closed && (e-b > 1);
+	    manifold = manifold && (e-b <= 2);
 	    ++nb_edges;
 	    b = e;
 	}
-	if(closed_and_manifold) {
-	    Xi = int(nb_vertices) - int(nb_edges) + int(nb_triangles);
+	Xi = int(nb_vertices) - int(nb_edges) + int(nb_triangles);
+	if(closed && manifold) {
 	    // compute facet adjacency graph. Facet f's neighboring
 	    // facets are f_adj[3*f], f_adj[3*f+1], f_adj[3*f+2]
 	    vector<index_t> f_adj(3*mesh.nb_triangles(),NO_INDEX);
@@ -105,52 +107,7 @@ namespace CSG {
 		}
 	    }
 	} else {
-	    Xi = 0;
 	    nb_components = 0;
-	}
-
-	// Mesh quality
-	vector<double> all_angles;
-	all_angles.reserve(3*nb_triangles);
-	vector<index_t> histo(360,0);
-
-	for(index_t t=0; t<mesh.nb_triangles(); ++t) {
-	    vec3 p[3] = {
-		mesh.point_3d(mesh.triangle_vertex(t,0)),
-		mesh.point_3d(mesh.triangle_vertex(t,1)),
-		mesh.point_3d(mesh.triangle_vertex(t,2))
-	    };
-	    for(index_t e=0; e<3; ++e) {
-		vec3 p1 = p[e];
-		vec3 p2 = p[(e+1)%3];
-		vec3 p3 = p[(e+2)%3];
-
-		vec3 a = p2-p1;
-		vec3 b = p3-p1;
-		double lab = ::sqrt(length2(a)*length2(b));
-		double cosangle = (lab > 1e-50) ? (dot(a, b) / lab) : 1.0;
-		// Numerical precision problem may occur, and generate
-		// normalized dot products that are outside the valid
-		// range of acos.
-		cosangle = std::max(cosangle,-1.0);
-		cosangle = std::min(cosangle, 1.0);
-		double angle = ::acos(cosangle) * 180.0 / M_PI;
-		all_angles.push_back(angle);
-		histo[index_t(angle)]++;
-	    }
-	}
-	std::sort(all_angles.begin(), all_angles.end());
-	min_angle = *all_angles.begin();
-	max_angle = *all_angles.rbegin();
-	med_angle = *(all_angles.begin() + all_angles.size()/2);
-	avg_angle = 0;
-	for(double a: all_angles) {
-	    avg_angle += a;
-	}
-	avg_angle /= double(all_angles.size());
-	std::ofstream out("angles.dat");
-	for(index_t i=0; i<histo.size(); ++i) {
-	    out << i << " " << histo[i] << std::endl;
 	}
     }
 
@@ -159,25 +116,16 @@ namespace CSG {
 			     << " area=" << area
 			     << " volume=" << volume
 			     << std::endl;
-	if(closed_and_manifold) {
-	    Logger::out("Stats") << "  Topology:"
-				 << " Xi=" << Xi
-				 << " #comp=" << nb_components
-				 << std::endl;
-	} else {
-	    Logger::out("Stats") << "Topology: non-manifold/non-closed"
-				 << std::endl;
-	}
+	Logger::out("Stats") << "  Topology:"
+			     << " closed=" << closed
+			     << " manif=" << manifold
+			     << " Xi=" << Xi
+			     << " #comp=" << nb_components
+			     << std::endl;
 	Logger::out("Stats") << "Complexity:"
 			     << " nv=" << nb_vertices
 			     << " ne=" << nb_edges
 			     << " nf=" << nb_triangles
-			     << std::endl;
-	Logger::out("Stats") << "   Quality:"
-			     << " mina=" << min_angle
-			     << " avga=" << avg_angle
-			     << " meda=" << med_angle
-			     << " maxa=" << max_angle
 			     << std::endl;
     }
 }
