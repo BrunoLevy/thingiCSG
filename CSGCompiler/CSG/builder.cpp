@@ -945,6 +945,8 @@ namespace CSG {
     std::shared_ptr<Mesh> BuilderWithTwoOperandsBooleanOps::union_instr(
 	const Scope& scope
     ) {
+	// For 2D operations, use generic 2D CSG engine from baseclass,
+	// that takes n-ary operations (with up to 32 operands)
 	if(scope.size() != 0 && scope[0]->dimension() == 2) {
 	    max_arity_ = 32;
 	    fused_union_difference_ = true;
@@ -954,18 +956,20 @@ namespace CSG {
 	    return result;
 	}
 
+	// Split operand lists with more than 2 operands
 	if(scope.size() > 2) {
 	    return Builder::union_instr(scope);
 	}
 
+	// O or 1 operands sometimes happen in some .SCAD files
 	if(scope.size() == 0) {
 	    return std::make_shared<Mesh>();
 	}
-
 	if(scope.size() == 1) {
 	    return scope[0];
 	}
 
+	// Let's rock and roll !
 	csg_assert(scope.size() == 2);
 	return union_of_two_operands(scope[0], scope[1]);
     }
@@ -973,6 +977,8 @@ namespace CSG {
     std::shared_ptr<Mesh> BuilderWithTwoOperandsBooleanOps::intersection(
 	const Scope& scope
     ) {
+	// For 2D operations, use generic 2D CSG engine from baseclass,
+	// that takes n-ary operations (with up to 32 operands)
 	if(scope.size() != 0 && scope[0]->dimension() == 2) {
 	    max_arity_ = 32;
 	    fused_union_difference_ = true;
@@ -982,18 +988,20 @@ namespace CSG {
 	    return result;
 	}
 
+	// Split operand lists with more than 2 operands
 	if(scope.size() > 2) {
 	    return Builder::intersection(scope);
 	}
 
+	// O or 1 operands sometimes happen in some .SCAD files
 	if(scope.size() == 0) {
 	    return std::make_shared<Mesh>();
 	}
-
 	if(scope.size() == 1) {
 	    return scope[0];
 	}
 
+	// Let's rock and roll !
 	csg_assert(scope.size() == 2);
 	return intersection_of_two_operands(scope[0], scope[1]);
     }
@@ -1001,6 +1009,8 @@ namespace CSG {
     std::shared_ptr<Mesh> BuilderWithTwoOperandsBooleanOps::difference(
 	const Scope& scope
     ) {
+	// For 2D operations, use generic 2D CSG engine from baseclass,
+	// that takes n-ary operations (with up to 32 operands)
 	if(scope.size() != 0 && scope[0]->dimension() == 2) {
 	    max_arity_ = 32;
 	    fused_union_difference_ = true;
@@ -1010,18 +1020,20 @@ namespace CSG {
 	    return result;
 	}
 
+	// Split operand lists with more than 2 operands
 	if(scope.size() > 2) {
 	    return Builder::difference(scope);
 	}
 
+	// O or 1 operands sometimes happen in some .SCAD files
 	if(scope.size() == 0) {
 	    return std::make_shared<Mesh>();
 	}
-
 	if(scope.size() == 1) {
 	    return scope[0];
 	}
 
+	// Let's rock and roll !
 	csg_assert(scope.size() == 2);
 	return difference_of_two_operands(scope[0], scope[1]);
     }
