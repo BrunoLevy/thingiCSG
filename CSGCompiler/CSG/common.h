@@ -83,7 +83,7 @@ namespace CSG {
     }
 
     inline std::ostream& operator<<(std::ostream& out, vec3 v) {
-	return (out << v.x << ' ' << v.y << ' ' << v.z);
+	return (out << v.x << ' ' << v.y << ' ' << v.z );
     }
 
     inline std::ostream& operator<<(std::ostream& out, vec4 v) {

@@ -6,6 +6,8 @@
 namespace {
     using namespace CSG;
 
+    /****** STL *********************************************************/
+
     bool mesh_save_STL_ascii(
 	const Mesh& M, const std::filesystem::path& filename
     ) {
@@ -289,6 +291,8 @@ namespace {
 	return mesh_save_STL_binary(M, filename);
     }
 
+    /****** OBJ *********************************************************/
+
     bool mesh_save_OBJ(
 	const Mesh& M, const std::filesystem::path& filename
     ) {
@@ -351,6 +355,120 @@ namespace {
 	return true;
     }
 
+    /****** OFF *********************************************************/
+
+    bool mesh_save_OFF(
+	const Mesh& M, const std::filesystem::path& filename
+    ) {
+	std::ofstream out(filename);
+	if(!out) {
+	    throw(
+		std::logic_error(
+		    std::string("Could not open ") + filename.c_str()
+		)
+	    );
+	}
+	out << std::setprecision(19);
+	out << "OFF" << std::endl;
+	out << M.nb_vertices() << " " << M.nb_triangles() << " " << M.nb_edges()
+	    << std::endl;
+	for(index_t v=0; v<M.nb_vertices(); ++v) {
+	    out << M.point(v) << std::endl;
+	}
+	for(index_t t=0; t<M.nb_triangles(); ++t) {
+	    out << "3 "
+		<< M.triangle_vertex(t,0) << " "
+		<< M.triangle_vertex(t,1) << " "
+		<< M.triangle_vertex(t,2)
+		<< std::endl;
+	}
+	/*
+	for(index_t e=0; e<M.nb_edges(); ++e) {
+	    out << "2 "
+		<< M.edge_vertex(e,0) << " "
+		<< M.edge_vertex(e,1)
+		<< std::endl;
+	}
+	*/
+	return true;
+    }
+
+    bool mesh_load_OFF(
+	Mesh& M, const std::filesystem::path& filename
+    ) {
+	LineInput in(filename);
+	if(!in.OK()) {
+	    return false;
+	}
+
+	M.clear();
+	M.set_dimension(3);
+
+	in.get_line();
+	in.get_fields();
+	if(in.nb_fields() == 1 && in.field_matches(0,"OFF")) {
+	    in.get_line();
+	    in.get_fields();
+	}
+
+	if(in.nb_fields() != 3) {
+	    Logger::err("IO") << "Invalid header" << std::endl;
+	    return false;
+	}
+
+	index_t nb_vertices = index_t(in.field_as_int(0));
+	index_t nb_facets = index_t(in.field_as_int(1));
+	index_t nb_edges = index_t(in.field_as_int(2));
+
+	M.create_vertices(nb_vertices);
+	M.create_triangles(nb_facets);
+	// M.create_edges(nb_edges);
+	for(index_t v=0; v<nb_vertices; ++v) {
+	    if(in.eof()) {
+		Logger::err("IO") << "File appears to be truncated" << std::endl;
+		return false;
+	    }
+	    in.get_line();
+	    in.get_fields();
+	    if(in.nb_fields() != 3) {
+		Logger::err("IO") << "Invalid vertex" << std::endl;
+		return false;
+	    }
+	    vec3 p(
+		in.field_as_double(0),
+		in.field_as_double(1),
+		in.field_as_double(2)
+	    );
+	    M.point_3d(v) = p;
+	}
+	for(index_t t=0; t<nb_facets; ++t) {
+	    if(in.eof()) {
+		Logger::err("IO") << "File appears to be truncated" << std::endl;
+		return false;
+	    }
+	    in.get_line();
+	    in.get_fields();
+	    if(in.nb_fields() != 4) {
+		Logger::err("IO") << "Invalid face" << std::endl;
+		return false;
+	    }
+	    if(in.field_as_int(0) != 3) {
+		Logger::err("IO") << "Only triangles are supported" << std::endl;
+		return false;
+	    }
+	    M.set_triangle(
+		t,
+		index_t(in.field_as_int(1)),
+		index_t(in.field_as_int(2)),
+		index_t(in.field_as_int(3))
+	    );
+	}
+
+	return true;
+    }
+
+    /******************************************************************/
+
 }
 
 namespace CSG {
@@ -364,6 +482,10 @@ namespace CSG {
 	    return mesh_load_OBJ(M, filename);
 	}
 
+	if(filename.extension() == ".off" || filename.extension() == ".OFF") {
+	    return mesh_load_OFF(M, filename);
+	}
+
 	Logger::err("IO") << filename.extension()
 			  << ": Unknown load extension"
 			  << std::endl;
@@ -372,12 +494,19 @@ namespace CSG {
 
     bool mesh_save(const Mesh& M, const std::filesystem::path& filename) {
 	Logger::out("IO") << "Saving " << filename << std::endl;
+
 	if(filename.extension() == ".stl" || filename.extension() == ".STL") {
 	    return mesh_save_STL(M, filename);
 	}
+
 	if(filename.extension() == ".obj" || filename.extension() == ".OBJ") {
 	    return mesh_save_OBJ(M, filename);
 	}
+
+	if(filename.extension() == ".off" || filename.extension() == ".OFF") {
+	    return mesh_save_OFF(M, filename);
+	}
+
 	Logger::err("IO") << filename.extension() << ": Unknown write extension"
 			  << std::endl;
 	return false;
