@@ -88,6 +88,14 @@ namespace CSG {
 	    res.string().c_str()
 	);
 
+	if(!verbose_) {
+#ifdef _WIN32_
+	    command += " >nul 2>nul";
+#else
+	    command += " >/dev/null 2>/dev/null";
+#endif
+	}
+
 	if(verbose_) {
 	    Logger::out("CSG") << "Running command: " << command << std::endl;
 	}
@@ -101,7 +109,7 @@ namespace CSG {
 	}
 
 	std::shared_ptr<Mesh> result = std::make_shared<Mesh>();
-	mesh_load(*result, res.string());
+	mesh_load(*result, res.string(), verbose_);
 
 	if(result->nb_vertices() == 0) {
 	    Logger::err("CSG")

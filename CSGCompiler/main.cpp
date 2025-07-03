@@ -2,6 +2,7 @@
 #include <CSG/builder_exe.h>
 #include <CSG/compiler.h>
 #include <CSG/mesh_io.h>
+#include <CSG/statistics.h>
 #include <geogram.psm.Delaunay/Delaunay_psm.h>
 
 int main(int argc, char** argv) {
@@ -46,12 +47,16 @@ int main(int argc, char** argv) {
 	CSG::Compiler compiler(GEO::CmdLine::get_arg("engine"));
 	compiler.set_verbose(GEO::CmdLine::get_arg_bool("verbose"));
 	std::shared_ptr<CSG::Mesh> result = compiler.compile_file(filenames[0]);
-	if(result != nullptr) {
+	if(result != nullptr && result->nb_vertices() != 0) {
 	    std::string outputfile = "out.obj";
 	    if(filenames.size() == 2) {
 		outputfile = filenames[1];
 	    }
 	    mesh_save(*result, std::filesystem::path(outputfile));
+	    if(result->dimension() == 3) {
+		CSG::Statistics stats(*result);
+		stats.show();
+	    }
 	} else {
 	    CSG::Logger::err("CSGCompiler") << "Result is empty" << std::endl;
 	}

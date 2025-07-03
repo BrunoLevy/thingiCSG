@@ -34,6 +34,28 @@ namespace CSG {
             return result;
         }
 
+	std::string format_time(double seconds, bool HMS_only) {
+
+	    std::string result;
+	    if(!HMS_only) {
+		result = String::to_string(seconds) + "s";
+	    }
+
+	    if(seconds >= 60.0) {
+		while(!HMS_only && result.length() <= 10) {
+		    result += " ";
+		}
+		int S = int(seconds);
+		int H = S / 3600;
+		S = S % 3600;
+		int M = S / 60;
+		S = S % 60;
+		result += String::format("(%02d:%02d:%02d)",H,M,S);
+	    }
+
+	    return result;
+	}
+
 	std::string tolower(const std::string& s) {
 	    std::string result = s;
 	    std::transform(
@@ -44,5 +66,56 @@ namespace CSG {
 	}
 
     }
+
+    /***************************************************************/
+
+    Stopwatch::Stopwatch(const std::string& task_name, bool verbose) :
+        start_(std::chrono::system_clock::now()),
+        task_name_(task_name),
+        verbose_(verbose)
+    {
+	if(verbose_) {
+	    Logger::out(task_name_) << "Start..." << std::endl;
+	}
+    }
+
+    Stopwatch::Stopwatch() :
+        start_(std::chrono::system_clock::now()),
+        verbose_(false)
+    {
+    }
+
+    double Stopwatch::elapsed_time() const {
+	// OMG, such nonsense ...
+	// ... but well, lets me get time with reasonable resolution
+	// in a portable way.
+        auto now(std::chrono::system_clock::now());
+        auto elapsed = now-start_;
+        auto elapsed_milliseconds =
+	    std::chrono::duration_cast<std::chrono::milliseconds>(elapsed);
+        return 0.001 * double(elapsed_milliseconds.count());
+    }
+
+    double Stopwatch::now() {
+        auto now(std::chrono::system_clock::now());
+        auto elapsed = now.time_since_epoch();
+        auto elapsed_milliseconds =
+	    std::chrono::duration_cast<std::chrono::milliseconds>(elapsed);
+        return 0.001 * double(elapsed_milliseconds.count());
+    }
+
+    Stopwatch::~Stopwatch() {
+        if(verbose_) {
+	    print_elapsed_time();
+	}
+    }
+
+    void Stopwatch::print_elapsed_time() {
+	Logger::out(task_name_)
+	    << "Elapsed: " << String::format_time(elapsed_time())
+	    << std::endl;
+    }
+
+    /***************************************************************/
 
 }

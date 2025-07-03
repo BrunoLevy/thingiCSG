@@ -13,8 +13,8 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
-
 #include <cstdint>
+#include <chrono>
 
 /**************************************************************************/
 
@@ -196,6 +196,15 @@ namespace CSG {
 #endif
         ;
 
+	/**
+	 * \brief Converts a time in seconds into a human-readable string
+	 * \param[in] HMS_only if set, always returns a hh:mm:ss string,
+	 *  else returns the time in seconds and a (hh:mm:ss) if time is
+	 *  greater or equal to one minute.
+	 */
+	std::string CSG_API format_time(double seconds, bool HMS_only=false);
+
+
 	std::string CSG_API tolower(const std::string& s);
     }
 
@@ -213,6 +222,75 @@ namespace CSG {
 	}
 
     }
+}
+
+/**************************************************************************/
+
+namespace CSG {
+    /**
+     * \brief Scope restricted stopwatch
+     * \details Stopwatch prints the elapsed time
+     * since its construction when it goes out of scope.
+     * It uses SystemStopwatch to measure time.
+     *
+     * \code
+     * {
+     *     Stopwatch W("compute my stuff") ;
+     *     ... do something ...
+     * } // <- W prints the elapsed time here.
+     * \endcode
+     */
+    class CSG_API Stopwatch {
+    public:
+    /**
+     * \brief Stopwatch constructor
+     * \param[in] task_name name of the job to measure. This name is
+     * used as a Logger feature when displaying the elapsed time.
+     * \param[in] verbose if true, then elapsed time is displayed
+     *  when this Stopwatch is destroyed, else nothing is displayed.
+     */
+    Stopwatch(const std::string& task_name, bool verbose=true);
+
+
+    /**
+     * \brief Stopwatch constructor
+     * \details Constructs a silent (verbose=false) Stopwatch
+     */
+    Stopwatch();
+
+    /**
+     * \brief Get the user elapsed time
+     * \details Returns the user time elapsed since the StopWatch
+     * construction (in seconds)
+     */
+    double elapsed_time() const;
+
+    /**
+     * \brief Stopwatch destructor
+     * \details This prints the time elapsed since the Stopwatch
+     * construction to the Logger if verbose was set in the constructor.
+     */
+    ~Stopwatch();
+
+
+    /**
+     * \brief Prints elapsed time to the Logger since the Stopwatch
+     * construction.
+     * \details Always print, even if verbose was not set in the constructor.
+     */
+    void print_elapsed_time();
+
+    /**
+     * \details Gets the current time since epoch (in seconds).
+     */
+    static double now();
+
+    private:
+    std::chrono::time_point<std::chrono::system_clock> start_;
+    std::string task_name_;
+    bool verbose_;
+    };
+
 }
 
 /**************************************************************************/
