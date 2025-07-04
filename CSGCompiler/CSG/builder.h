@@ -297,7 +297,9 @@ namespace CSG {
 	};
     }
 
+    static bool can_create(const std::string& name);
     static std::shared_ptr<Builder> create(const std::string& name);
+    static std::string list_builders();
 
     protected:
 

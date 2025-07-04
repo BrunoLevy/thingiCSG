@@ -924,6 +924,10 @@ namespace CSG {
 
     std::map<std::string, BuilderFactory> Builder::factories_;
 
+    bool Builder::can_create(const std::string& name) {
+	return (factories_.find(name) != factories_.end());
+    }
+
     std::shared_ptr<Builder> Builder::create(const std::string& name) {
 	Logger::out("Builder") << "Creating engine: " << name << std::endl;
 	std::shared_ptr<Builder> result;
@@ -933,6 +937,17 @@ namespace CSG {
 	} else {
 	    Logger::err("Builder") << name << ": no such engine"
 				   << std::endl;
+	}
+	return result;
+    }
+
+    std::string Builder::list_builders() {
+	std::string result;
+	for(auto it: factories_) {
+	    if(result != "") {
+		result += ",";
+	    }
+	    result += it.first;
 	}
 	return result;
     }

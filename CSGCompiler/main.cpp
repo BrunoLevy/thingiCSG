@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     );
 
     GEO::CmdLine::declare_arg(
-	"engine", "dummy", "one of dummy, Zhou, Cherchi, geogram0, generic"
+	"engine", "dummy", "one of " + CSG::Builder::list_builders()
     );
 
     CSG::BuilderExe::declare_command_line_args();
