@@ -275,11 +275,17 @@ namespace CSG {
 
     /**
      * \brief Prints elapsed time to the Logger since the Stopwatch
-     * construction.
+     * construction or last call to reset()
      * \details Always print, even if verbose was not set in the constructor.
      */
     void print_elapsed_time();
 
+
+    /**
+     * \brief Resets starting time to current time
+     */ 
+    void reset();
+       
     /**
      * \details Gets the current time since epoch (in seconds).
      */

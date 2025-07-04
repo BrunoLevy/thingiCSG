@@ -79,12 +79,14 @@ namespace CSG {
 	}
     }
 
-    Stopwatch::Stopwatch() :
-        start_(std::chrono::system_clock::now()),
-        verbose_(false)
-    {
+    Stopwatch::Stopwatch() : verbose_(false) {
+       reset();
     }
 
+    void Stopwatch::reset() {
+       start_ = std::chrono::system_clock::now();
+    }
+   
     double Stopwatch::elapsed_time() const {
 	// OMG, such nonsense ...
 	// ... but well, lets me get time with reasonable resolution

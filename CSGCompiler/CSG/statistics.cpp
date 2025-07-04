@@ -5,8 +5,14 @@
 
 namespace CSG {
 
-    Statistics::Statistics(const Mesh& mesh) {
+    Statistics::Statistics() : W("Stats",false) {
+    }
+   
+   
+    void Statistics::measure(const Mesh& mesh) {
 
+        elapsed_time = W.elapsed_time();
+       
 	// Geometry
 	area = 0.0;
 	volume = 0.0;
@@ -64,7 +70,7 @@ namespace CSG {
 	    b = e;
 	}
 	Xi = int(nb_vertices) - int(nb_edges) + int(nb_triangles);
-	if(closed && manifold) {
+	if(manifold && closed) {
 	    // compute facet adjacency graph. Facet f's neighboring
 	    // facets are f_adj[3*f], f_adj[3*f+1], f_adj[3*f+2]
 	    vector<index_t> f_adj(3*mesh.nb_triangles(),NO_INDEX);
@@ -109,6 +115,8 @@ namespace CSG {
 	} else {
 	    nb_components = 0;
 	}
+
+        W.reset();
     }
 
     void Statistics::show() {
@@ -127,5 +135,8 @@ namespace CSG {
 			     << " ne=" << nb_edges
 			     << " nf=" << nb_triangles
 			     << std::endl;
+       Logger::out("Stats")  << "      Time: "
+	                     << String::format_time(elapsed_time)
+	                     << std::endl; 
     }
 }

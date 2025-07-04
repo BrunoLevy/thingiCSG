@@ -38,6 +38,7 @@ int main(int argc, char** argv) {
     }
 
     try {
+        CSG::Statistics stats;
 	if(GEO::CmdLine::get_arg_bool("clear_cache")) {
 	    CSG::OpenSCAD_cache_invalidate();
 	}
@@ -54,7 +55,7 @@ int main(int argc, char** argv) {
 	    }
 	    mesh_save(*result, std::filesystem::path(outputfile));
 	    if(result->dimension() == 3) {
-		CSG::Statistics stats(*result);
+	        stats.measure(*result);
 		stats.show();
 	    }
 	} else {

@@ -8,9 +8,12 @@ namespace CSG {
     class Mesh;
 
     struct CSG_API Statistics {
-	Statistics(const Mesh& mesh);
+        Statistics();
+        void measure(const Mesh& mesh);
 	void show();
 
+        Stopwatch W;
+       
 	// geometry
 	double area;
 	double volume;
@@ -25,6 +28,8 @@ namespace CSG {
 	index_t nb_vertices;
 	index_t nb_edges;
 	index_t nb_triangles;
+
+        double elapsed_time;
     };
 
 }
