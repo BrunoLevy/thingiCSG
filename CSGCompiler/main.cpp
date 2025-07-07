@@ -8,10 +8,7 @@
 namespace {
     using namespace CSG;
 
-    void run_internal(
-	const std::string& inputfile, const std::string& outputfile
-    ) {
-        CSG::Statistics stats;
+    std::shared_ptr<Mesh> run_internal(const std::string& inputfile) {
 	if(GEO::CmdLine::get_arg_bool("clear_cache")) {
 	    CSG::OpenSCAD_cache_invalidate();
 	}
@@ -20,25 +17,10 @@ namespace {
 	}
 	CSG::Compiler compiler(GEO::CmdLine::get_arg("builder"));
 	compiler.set_verbose(GEO::CmdLine::get_arg_bool("verbose"));
-	std::shared_ptr<CSG::Mesh> result = compiler.compile_file(inputfile);
-	if(result != nullptr && result->nb_vertices() != 0) {
-	    std::string outputfile = "out.obj";
-	    mesh_save(*result, std::filesystem::path(outputfile));
-	    if(result->dimension() == 3) {
-	        stats.measure(*result);
-		stats.show();
-	    }
-	} else {
-	    CSG::Logger::err("CSGCompiler") << "Result is empty" << std::endl;
-	}
+	return compiler.compile_file(inputfile);
     }
 
-    void run_wrapped(
-	const std::filesystem::path& inputfile,
-	const std::filesystem::path& outputfile
-    ) {
-        CSG::Statistics stats;
-
+    std::shared_ptr<Mesh> run_wrapped(const std::filesystem::path& inputfile) {
 	bool verbose = GEO::CmdLine::get_arg_bool("verbose");
 
 	std::filesystem::path tmpout =
@@ -67,25 +49,16 @@ namespace {
 	    );
 	}
 
-	Mesh result;
-	if(!mesh_load(result, tmpout)) {
+	std::shared_ptr<Mesh> result = std::make_shared<Mesh>();
+	if(!mesh_load(*result, tmpout)) {
 	    throw(
 		std::logic_error(
 		    "error while reading:" + tmpout.string()
 		)
 	    );
 	}
-	result.merge_duplicated_points();
-
-	if(result.nb_vertices() != 0) {
-	    mesh_save(result,outputfile);
-	    if(result.dimension() == 3) {
-	        stats.measure(result);
-		stats.show();
-	    }
-	} else {
-	    CSG::Logger::err("CSGCompiler") << "Result is empty" << std::endl;
-	}
+	result->merge_duplicated_points();
+	return result;
     }
 }
 
@@ -127,10 +100,21 @@ int main(int argc, char** argv) {
 	filenames.push_back("out.obj");
     }
     try {
+        CSG::Statistics stats;
+	std::shared_ptr<Mesh> result;
 	if(GEO::CmdLine::get_arg("wrap_command") != "") {
-	    run_wrapped(filenames[0], filenames[1]);
+	    result = run_wrapped(filenames[0]);
 	} else {
-	    run_internal(filenames[0], filenames[1]);
+	    result = run_internal(filenames[0]);
+	}
+	if(result != nullptr && result->nb_vertices() != 0) {
+	    mesh_save(*result, std::filesystem::path(filenames[1]));
+	    if(result->dimension() == 3) {
+	        stats.measure(*result);
+		stats.show();
+	    }
+	} else {
+	    CSG::Logger::err("CSGCompiler") << "Result is empty" << std::endl;
 	}
     } catch(const std::exception& e) {
 	std::cerr << "Received an exception: " << e.what() << std::endl;
