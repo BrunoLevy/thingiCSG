@@ -17,6 +17,7 @@ namespace CSG {
 	    const std::filesystem::path& stats_file,
 	    const std::filesystem::path& mesh_file
 	);
+	bool matches(const Statistics& rhs) const;
 
         Stopwatch W;
 
@@ -38,6 +39,8 @@ namespace CSG {
         double elapsed_time;
 
 	std::filesystem::path filename;
+
+	bool validated;
     };
 
 }

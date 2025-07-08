@@ -10,4 +10,4 @@ set(SOURCES
     main.cpp
 )
 
-add_executable(CSGCompiler ${SOURCES})
+add_executable(csg++ ${SOURCES})

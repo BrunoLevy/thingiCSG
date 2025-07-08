@@ -4,6 +4,7 @@
 #include <stack>
 #include <fstream>
 #include <map>
+#include <geogram.psm.Delaunay/Delaunay_psm.h>
 
 namespace CSG {
 
@@ -18,11 +19,12 @@ namespace CSG {
 	nb_edges = 0;
 	nb_triangles = 0;
         elapsed_time = 0.0;
+	validated = false;
     }
 
 
     void Statistics::measure(const Mesh& mesh) {
-
+	validated = false;
         elapsed_time = W.elapsed_time();
 
 	if(mesh.dimension() == 2) {
@@ -137,6 +139,9 @@ namespace CSG {
     }
 
     void Statistics::show() {
+	Logger::out("Stats") << "      File: "
+			     << filename
+			     << std::endl;
 	Logger::out("Stats") << "  Geometry:"
 			     << " area=" << area
 			     << " volume=" << volume
@@ -160,21 +165,30 @@ namespace CSG {
 
     void Statistics::append_stats_to_file(const std::filesystem::path& file) {
 	bool existed = std::filesystem::is_regular_file(file);
+	bool with_validation = (
+	    GEO::CmdLine::get_arg("validate:reference_stats_file") != ""
+	);
 	std::ofstream out(file, std::ios::app);
 	if(!existed) {
 	    out << "filename, area, volume, closed, manifold, "
 		<< "Xi, nb_components, "
 		<< "nb_vertices, nb_edges, nb_triangles, "
-		<< "time"
-		<< std::endl;
+		<< "time";
+	    if(with_validation) {
+		out << ", validated";
+	    }
+	    out << std::endl;
 	}
 	out << filename.filename().string() << ", "
 	    << area << ", " << volume << ", "
 	    << closed << ", " << manifold << ", "
 	    << Xi << ", " << nb_components << ", "
 	    << nb_vertices << ", " << nb_edges << ", " << nb_triangles << ", "
-	    << String::format_time(elapsed_time)
-	    << std::endl;
+	    << String::format_time(elapsed_time);
+	if(with_validation) {
+	    out << ", " << validated;
+	}
+	out << std::endl;
     }
 
     void Statistics::load(
@@ -243,6 +257,65 @@ namespace CSG {
 		).c_str()
 	    )
 	);
+    }
+
+    bool Statistics::matches(const Statistics& reference) const {
+	bool OK = true;
+
+	double volume_threshold =
+	    reference.volume * 0.01 *
+	    GEO::CmdLine::get_arg_double("validate:volume_tolerance");
+
+	bool volume_OK = ::fabs(volume - reference.volume) < volume_threshold;
+
+	Logger::out("Validate") << "Geometry: "
+				<< "volume " << volume << " " << reference.volume
+				<< " " << (volume_OK ? "OK" : "KO")
+				<< std::endl;
+
+	OK = OK && volume_OK;
+
+	double area_threshold =
+	    reference.area * 0.01 *
+	    GEO::CmdLine::get_arg_double("validate:area_tolerance");
+
+	bool area_OK = ::fabs(area - reference.area) < area_threshold;
+
+	Logger::out("Validate") << "Geometry: "
+				<< "area " << area << " " << reference.area
+				<< " " << (area_OK ? "OK" : "KO")
+				<< std::endl;
+
+	OK = OK && area_OK;
+
+	Logger::out("Validate") << "Topology: "
+				<< "closed " << closed << " "
+				<< "manifold " << manifold
+				<< " " << ((closed && manifold) ? "OK" : "KO")
+				<< std::endl;
+
+	OK = OK && closed && manifold;
+
+	Logger::out("Validate") << "Topology: "
+				<< "Xi " << Xi << " " << reference.Xi
+				<< " " << ((Xi == reference.Xi) ? "OK" : "KO")
+				<< std::endl;
+
+	OK = OK && (Xi == reference.Xi);
+
+	Logger::out("Validate")
+	    << "Topology: "
+	    << "#comp " << nb_components
+	    << " " << reference.nb_components
+	    << " " << ((nb_components == reference.nb_components) ? "OK" : "KO")
+	    << std::endl;
+
+	OK = OK && (nb_components == reference.nb_components);
+
+	Logger::out("Validate") << "Global result: " << (OK ? "OK" : "KO")
+				<< std::endl;
+
+	return OK;
     }
 
 }

@@ -125,21 +125,20 @@ int main(int argc, char** argv) {
 	    result = run_internal(filenames[0]);
 	}
 	std::filesystem::path stats_file = GEO::CmdLine::get_arg("stats_file");
+	std::filesystem::path reference_stats_file = GEO::CmdLine::get_arg(
+	    "validate:reference_stats_file"
+	);
 	if(result != nullptr && result->nb_vertices() != 0) {
 	    mesh_save(*result, std::filesystem::path(filenames[1]));
-	    if(result->dimension() == 3) {
-	        stats.measure(*result);
-		stats.show();
-	    }
-	    if(stats_file != "") {
-		stats.append_stats_to_file(stats_file);
-	    }
-	    std::filesystem::path reference_stats_file = GEO::CmdLine::get_arg(
-		"validate:reference_stats_file"
-	    );
+	    stats.measure(*result);
+	    stats.show();
 	    if(reference_stats_file != "") {
 		CSG::Statistics reference_stats;
 		reference_stats.load(reference_stats_file, stats.filename);
+		stats.validated = stats.matches(reference_stats);
+	    }
+	    if(stats_file != "") {
+		stats.append_stats_to_file(stats_file);
 	    }
 	} else {
 	    CSG::Logger::err("CSGCompiler") << "Result is empty" << std::endl;
