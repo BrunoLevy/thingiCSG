@@ -86,6 +86,22 @@ int main(int argc, char** argv) {
 	"builder", "dummy", "one of " + CSG::Builder::list_builders()
     );
 
+    GEO::CmdLine::declare_arg("stats_file", "", "CSV file to store statistics");
+
+    GEO::CmdLine::declare_arg_group(
+	"validate", "Mesh validation with reference"
+    );
+    GEO::CmdLine::declare_arg(
+	"validate:reference_stats_file","",
+	"CSV file to store reference statistics for validation"
+    );
+    GEO::CmdLine::declare_arg(
+	"validate:area_tolerance", 1.0, "relative area tolerance, in percent"
+    );
+    GEO::CmdLine::declare_arg(
+	"validate:volume_tolerance", 1.0, "relative volume tolerance, in percent"
+    );
+
     CSG::BuilderExe::declare_command_line_args();
 
     std::vector<std::string> filenames;
@@ -102,16 +118,28 @@ int main(int argc, char** argv) {
     try {
         CSG::Statistics stats;
 	std::shared_ptr<Mesh> result;
+	stats.filename = std::filesystem::path(filenames[0]).filename();
 	if(GEO::CmdLine::get_arg("wrap_command") != "") {
 	    result = run_wrapped(filenames[0]);
 	} else {
 	    result = run_internal(filenames[0]);
 	}
+	std::filesystem::path stats_file = GEO::CmdLine::get_arg("stats_file");
 	if(result != nullptr && result->nb_vertices() != 0) {
 	    mesh_save(*result, std::filesystem::path(filenames[1]));
 	    if(result->dimension() == 3) {
 	        stats.measure(*result);
 		stats.show();
+	    }
+	    if(stats_file != "") {
+		stats.append_stats_to_file(stats_file);
+	    }
+	    std::filesystem::path reference_stats_file = GEO::CmdLine::get_arg(
+		"validate:reference_stats_file"
+	    );
+	    if(reference_stats_file != "") {
+		CSG::Statistics reference_stats;
+		reference_stats.load(reference_stats_file, stats.filename);
 	    }
 	} else {
 	    CSG::Logger::err("CSGCompiler") << "Result is empty" << std::endl;

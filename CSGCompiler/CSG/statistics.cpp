@@ -1,18 +1,35 @@
 #include <CSG/statistics.h>
 #include <CSG/mesh.h>
+#include <CSG/line_stream.h>
 #include <stack>
 #include <fstream>
+#include <map>
 
 namespace CSG {
 
     Statistics::Statistics() : W("Stats",false) {
+	area = 0.0;
+	volume = 0.0;
+	closed = false;
+	manifold = false;
+	Xi = std::numeric_limits<int>::min();
+	nb_components = 0;
+	nb_vertices = 0;
+	nb_edges = 0;
+	nb_triangles = 0;
+        elapsed_time = 0.0;
     }
-   
-   
+
+
     void Statistics::measure(const Mesh& mesh) {
 
         elapsed_time = W.elapsed_time();
-       
+
+	if(mesh.dimension() == 2) {
+	    // TODO
+	    return;
+	}
+
 	// Geometry
 	area = 0.0;
 	volume = 0.0;
@@ -137,6 +154,95 @@ namespace CSG {
 			     << std::endl;
        Logger::out("Stats")  << "      Time: "
 	                     << String::format_time(elapsed_time)
-	                     << std::endl; 
+	                     << std::endl;
     }
+
+
+    void Statistics::append_stats_to_file(const std::filesystem::path& file) {
+	bool existed = std::filesystem::is_regular_file(file);
+	std::ofstream out(file, std::ios::app);
+	if(!existed) {
+	    out << "filename, area, volume, closed, manifold, "
+		<< "Xi, nb_components, "
+		<< "nb_vertices, nb_edges, nb_triangles, "
+		<< "time"
+		<< std::endl;
+	}
+	out << filename.filename().string() << ", "
+	    << area << ", " << volume << ", "
+	    << closed << ", " << manifold << ", "
+	    << Xi << ", " << nb_components << ", "
+	    << nb_vertices << ", " << nb_edges << ", " << nb_triangles << ", "
+	    << String::format_time(elapsed_time)
+	    << std::endl;
+    }
+
+    void Statistics::load(
+	const std::filesystem::path& stats_file,
+	const std::filesystem::path& mesh_file
+    ) {
+	std::map<std::string, index_t> header;
+	LineInput in(stats_file.string());
+
+	auto find_field = [&](const std::string& name)->index_t {
+	    auto it = header.find(name);
+	    if(it == header.end()) {
+		throw(std::logic_error((name + ": no such field").c_str()));
+	    }
+	    return it->second;
+	};
+
+	if(!in.OK()) {
+	    throw(
+		std::logic_error(
+		    "Could not open: " + stats_file.string()
+		)
+	    );
+	}
+	in.get_line();
+	in.get_fields(", \t\r\n");
+	for(index_t i=0; i<in.nb_fields(); ++i) {
+	    header[in.field(i)] = i;
+	}
+
+	index_t filename_field = find_field("filename");
+	index_t area_field = find_field("area");
+	index_t volume_field = find_field("volume");
+	index_t closed_field = find_field("closed");
+	index_t manifold_field = find_field("manifold");
+	index_t Xi_field = find_field("Xi");
+	index_t nb_components_field = find_field("nb_components");
+	index_t nb_vertices_field = find_field("nb_vertices");
+	index_t nb_edges_field = find_field("nb_edges");
+	index_t nb_triangles_field = find_field("nb_triangles");
+
+	while(!in.eof()) {
+	    in.get_line();
+	    in.get_fields(", \t\r\n");
+	    if(in.field(filename_field) == mesh_file) {
+		filename = mesh_file;
+		area = in.field_as_double(area_field);
+		volume = in.field_as_double(volume_field);
+		closed = in.field_as_int(closed_field);
+		manifold = in.field_as_int(manifold_field);
+		Xi = in.field_as_int(Xi_field);
+		nb_components = in.field_as_uint(nb_components_field);
+		nb_vertices = in.field_as_uint(nb_vertices_field);
+		nb_edges = in.field_as_uint(nb_edges_field);
+		nb_triangles = in.field_as_uint(nb_triangles_field);
+		elapsed_time = 0.0; // Todo: parse time
+		return;
+	    }
+	}
+
+	throw(
+	    std::logic_error(
+		(
+		    mesh_file.string() + ": no such mesh file in " +
+		    stats_file.string()
+		).c_str()
+	    )
+	);
+    }
+
 }

@@ -2,6 +2,7 @@
 #define CSG_STATISTICS
 
 #include <CSG/common.h>
+#include <filesystem>
 
 namespace CSG {
 
@@ -11,9 +12,14 @@ namespace CSG {
         Statistics();
         void measure(const Mesh& mesh);
 	void show();
+	void append_stats_to_file(const std::filesystem::path& file);
+	void load(
+	    const std::filesystem::path& stats_file,
+	    const std::filesystem::path& mesh_file
+	);
 
         Stopwatch W;
-       
+
 	// geometry
 	double area;
 	double volume;
@@ -30,6 +36,8 @@ namespace CSG {
 	index_t nb_triangles;
 
         double elapsed_time;
+
+	std::filesystem::path filename;
     };
 
 }
