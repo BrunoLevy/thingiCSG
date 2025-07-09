@@ -202,7 +202,30 @@ namespace CSG {
 	std::string CSG_API format_time(double seconds);
 
 
+	/**
+	 * \brief Converts a string to lowercase
+	 * \param[in] s the input string
+	 * \return the lowercase version of \p s
+	 */
 	std::string CSG_API tolower(const std::string& s);
+
+        /**
+         * \brief Splits a string into parts
+         * \details Splits the string \p in into a list of substrings \p out
+         * wherever \p separator occurs.
+         * \param[in] in the input string to split
+         * \param[in] separator the separator character
+         * \param[in] out the resulting list of substrings
+         * \param[in] skip_empty_fields specifies whether empty parts should
+         * be ignored and not stored in list \p out (this is true by default).
+         * \see join_strings()
+         */
+        void CSG_API split_string(
+            const std::string& in,
+            char separator,
+            std::vector<std::string>& out,
+            bool skip_empty_fields = true
+        );
     }
 
     namespace Logger {

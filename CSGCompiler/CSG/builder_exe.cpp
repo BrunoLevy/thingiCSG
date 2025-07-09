@@ -102,6 +102,10 @@ namespace CSG {
 	    mesh_load(*result, res.string(), verbose_);
 	}
 
+	if(std::filesystem::is_regular_file(res)) {
+	    std::filesystem::remove(res);
+	}
+
 	if(result->nb_vertices() == 0) {
 	    throw(
 		std::logic_error(

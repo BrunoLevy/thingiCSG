@@ -304,6 +304,7 @@ namespace CSG {
 				<< " manifold " << manifold
 				<< std::endl;
 
+	bool reference_topology_OK = reference.closed && reference.manifold;
 	bool topology_OK = closed && manifold;
 
 	Logger::out("Validate") << "Topology:"
@@ -322,11 +323,27 @@ namespace CSG {
 
 	topology_OK = topology_OK && (nb_components == reference.nb_components);
 
-	bool OK = geometry_OK && topology_OK;
+	bool ignore_topology = GEO::CmdLine::get_arg_bool(
+	    "validate:ignore_topology"
+	);
+
+	if(ignore_topology && !topology_OK) {
+	    Logger::out("Validate")
+		<< "Ignoring KO topology (validate:ignore_topology)"
+		<< std::endl;
+	}
+
+	if(!topology_OK && !reference_topology_OK) {
+	    Logger::out("Validate")
+		<< "Ignoring KO topology (reference topology is KO)"
+		<< std::endl;
+	}
+
+	bool OK = geometry_OK &&
+	    (ignore_topology || !reference_topology_OK || topology_OK);
 
 	Logger::out("Validate") << "Combined: " << (OK ? "OK" : "KO")
 				<< std::endl;
-
 	return OK;
     }
 

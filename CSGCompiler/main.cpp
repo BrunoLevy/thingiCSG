@@ -43,12 +43,32 @@ namespace {
 		)
 	    );
 	}
+
+	if(std::filesystem::is_regular_file(tmpout)) {
+	    std::filesystem::remove(tmpout);
+	}
+
 	result->merge_duplicated_points();
 	return result;
     }
 
 
     bool run_one_file(const std::filesystem::path& input) {
+
+	std::vector<std::string> files_to_ignore;
+	String::split_string(
+	    GEO::CmdLine::get_arg("ignore_files"),',',files_to_ignore
+	);
+	if(
+	    std::find(
+		files_to_ignore.begin(), files_to_ignore.end(),
+		input.filename().string()
+	    ) != files_to_ignore.end()
+	) {
+	    Logger::out("CSG") << input << ": skipped" << std::endl;
+	    return true;
+	}
+
 	std::filesystem::path basename = input.filename().replace_extension();
 	std::filesystem::path output = input.parent_path() / String::format(
 	    GEO::CmdLine::get_arg("output").c_str(), basename.c_str()
@@ -57,7 +77,7 @@ namespace {
 	try {
 	    CSG::Statistics stats;
 	    std::shared_ptr<Mesh> result;
-	    stats.filename = input;
+	    stats.filename = input.filename();
 	    if(GEO::CmdLine::get_arg("wrap_command") != "") {
 		result = run_wrapped(input);
 	    } else {
@@ -120,6 +140,10 @@ int main(int argc, char** argv) {
 	"builder", "dummy", "one of " + CSG::Builder::list_builders()
     );
 
+    GEO::CmdLine::declare_arg(
+	"ignore_files", "", "coma-separated list of input files to ingore"
+    );
+
     GEO::CmdLine::declare_arg("stats_file", "", "CSV file to store statistics");
 
     GEO::CmdLine::declare_arg("output", "%s.obj", "Output file name");
@@ -136,6 +160,9 @@ int main(int argc, char** argv) {
     );
     GEO::CmdLine::declare_arg(
 	"validate:volume_tolerance", 1.0, "relative volume tolerance, in percent"
+    );
+    GEO::CmdLine::declare_arg(
+	"validate:ignore_topology", false, ""
     );
 
     GEO::CmdLine::declare_arg(
@@ -166,6 +193,9 @@ int main(int argc, char** argv) {
 
     bool OK = true;
     for(const std::string& input: filenames) {
+	if(filenames.size() > 1) {
+	    Logger::out("CSG") << "Processing " << input << "..." << std::endl;
+	}
 	bool this_file_OK = run_one_file(input);
 	OK = OK && this_file_OK;
     }
