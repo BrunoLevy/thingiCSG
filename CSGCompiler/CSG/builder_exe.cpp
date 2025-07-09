@@ -96,20 +96,11 @@ namespace CSG {
 #endif
 	}
 
-	if(verbose_) {
-	    Logger::out("CSG") << "Running command: " << command << std::endl;
-	}
-	if(system(command.c_str())) {
-	    Logger::warn("CSG") << "Error while running external boolean op"
-			       << std::endl;
-	    Logger::warn("CSG") << "(command: " << command <<") " << std::endl;
-	}
-	if(verbose_) {
-	    Logger::out("CSG") << "Done command" << std::endl;
-	}
 
 	std::shared_ptr<Mesh> result = std::make_shared<Mesh>();
-	mesh_load(*result, res.string(), verbose_);
+	if(run_external_command(command)) {
+	    mesh_load(*result, res.string(), verbose_);
+	}
 
 	if(result->nb_vertices() == 0) {
 	    throw(

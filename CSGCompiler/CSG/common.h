@@ -285,6 +285,14 @@ namespace CSG {
     bool verbose_;
     };
 
+    /**
+     * \brief Runs an external command
+     * \details Takes into account verbose and timeout command line arguments
+     * \retval true if command was sucessfully run
+     * \retval false otherwise
+     */
+    bool CSG_API run_external_command(const std::string& command);
+
 }
 
 /**************************************************************************/

@@ -129,4 +129,28 @@ namespace CSG {
 	}
     }
 
+    /**************************************************************/
+
+    bool CSG_API run_external_command(const std::string& command_in) {
+	std::string command = command_in;
+	bool verbose = GEO::CmdLine::get_arg_bool("verbose");
+#ifdef __linux__
+	int timeout = GEO::CmdLine::get_arg_int("timeout");
+	if(timeout != 0) {
+	    command = "timeout " + String::to_string(timeout) + " " + command;
+	}
+#endif
+	if(verbose) {
+	    Logger::out("CSG") << "Running external: " << command << std::endl;
+	} else {
+#ifdef _WIN32_
+	    command += " >nul 2>nul";
+#else
+	    command += " >/dev/null 2>/dev/null";
+#endif
+	}
+
+	return (system(command.c_str()) == 0);
+    }
+
 }

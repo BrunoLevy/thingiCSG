@@ -31,22 +31,8 @@ namespace {
 	    inputfile.string().c_str(), tmpout.string().c_str()
 	);
 
-	if(verbose) {
-	    Logger::out("CSG") << "Running external:" << command << std::endl;
-	} else {
-#ifdef _WIN32_
-	    command += " >nul 2>nul";
-#else
-	    command += " >/dev/null 2>/dev/null";
-#endif
-	}
-
-	if(system(command.c_str())) {
-	    throw(
-		std::logic_error(
-		    "error while executing command:" + command
-		)
-	    );
+	if(!run_external_command(command)) {
+	    throw(std::logic_error("error while executing command:" + command));
 	}
 
 	std::shared_ptr<Mesh> result = std::make_shared<Mesh>();
@@ -150,6 +136,10 @@ int main(int argc, char** argv) {
     );
     GEO::CmdLine::declare_arg(
 	"validate:volume_tolerance", 1.0, "relative volume tolerance, in percent"
+    );
+
+    GEO::CmdLine::declare_arg(
+	"timeout", 0, "if set, maximum time in seconds for external commands"
     );
 
     CSG::BuilderExe::declare_command_line_args();
