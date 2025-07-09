@@ -115,6 +115,7 @@ int main(int argc, char** argv) {
     if(filenames.size() == 1) {
 	filenames.push_back("out.obj");
     }
+    bool OK = true;
     try {
         CSG::Statistics stats;
 	std::shared_ptr<Mesh> result;
@@ -131,11 +132,13 @@ int main(int argc, char** argv) {
 	if(result != nullptr && result->nb_vertices() != 0) {
 	    mesh_save(*result, std::filesystem::path(filenames[1]));
 	    stats.measure(*result);
-	    stats.show();
-	    if(reference_stats_file != "") {
+	    if(reference_stats_file == "") {
+		stats.show();
+	    } else {
 		CSG::Statistics reference_stats;
 		reference_stats.load(reference_stats_file, stats.filename);
 		stats.validated = stats.matches(reference_stats);
+		OK = stats.validated;
 	    }
 	    if(stats_file != "") {
 		stats.append_stats_to_file(stats_file);
@@ -148,8 +151,13 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    CSG::Logger::out("CSGCompiler")
-	<< "Everything OK, Returning status 0" << std::endl;
+    if(OK) {
+	CSG::Logger::out("CSGCompiler")
+	    << "Everything OK, Returning status 0" << std::endl;
+    } else {
+	CSG::Logger::out("CSGCompiler")
+	    << "Detected a problem, returning status 1" << std::endl;
+    }
 
-    return 0;
+    return OK ? 0 : 1;
 }

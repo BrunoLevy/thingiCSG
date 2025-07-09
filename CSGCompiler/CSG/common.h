@@ -209,18 +209,9 @@ namespace CSG {
     }
 
     namespace Logger {
-	inline std::ostream& out(const std::string& cat) {
-	    return std::cout << "[" << cat << "] ";
-	}
-
-	inline std::ostream& err(const std::string& cat) {
-	    return std::cerr << "[E]-[" << cat << "] ";
-	}
-
-	inline std::ostream& warn(const std::string& cat) {
-	    return std::cerr << "[W]-[" << cat << "] ";
-	}
-
+	std::ostream& CSG_API out(const std::string& cat);
+	std::ostream& CSG_API err(const std::string& cat);
+	std::ostream& CSG_API warn(const std::string& cat);
     }
 }
 
@@ -283,9 +274,9 @@ namespace CSG {
 
     /**
      * \brief Resets starting time to current time
-     */ 
+     */
     void reset();
-       
+
     /**
      * \details Gets the current time since epoch (in seconds).
      */

@@ -1,6 +1,7 @@
 #include <CSG/common.h>
 #include <cstdlib>
 #include <stdarg.h>
+#include <geogram.psm.Delaunay/Delaunay_psm.h>
 
 namespace CSG {
 
@@ -86,7 +87,7 @@ namespace CSG {
     void Stopwatch::reset() {
        start_ = std::chrono::system_clock::now();
     }
-   
+
     double Stopwatch::elapsed_time() const {
 	// OMG, such nonsense ...
 	// ... but well, lets me get time with reasonable resolution
@@ -119,5 +120,19 @@ namespace CSG {
     }
 
     /***************************************************************/
+
+    namespace Logger {
+	std::ostream& out(const std::string& cat) {
+	    return GEO::Logger::out(cat);
+	}
+
+	std::ostream& err(const std::string& cat) {
+	    return GEO::Logger::err(cat);
+	}
+
+	std::ostream& warn(const std::string& cat) {
+	    return GEO::Logger::warn(cat);
+	}
+    }
 
 }

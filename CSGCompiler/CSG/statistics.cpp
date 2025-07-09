@@ -142,6 +142,14 @@ namespace CSG {
 	Logger::out("Stats") << "      File: "
 			     << filename
 			     << std::endl;
+       Logger::out("Stats")  << "      Time: "
+	                     << String::format_time(elapsed_time)
+	                     << std::endl;
+	Logger::out("Stats") << "     Sizes:"
+			     << " nv=" << nb_vertices
+			     << " ne=" << nb_edges
+			     << " nf=" << nb_triangles
+			     << std::endl;
 	Logger::out("Stats") << "  Geometry:"
 			     << " area=" << area
 			     << " volume=" << volume
@@ -152,14 +160,6 @@ namespace CSG {
 			     << " Xi=" << Xi
 			     << " #comp=" << nb_components
 			     << std::endl;
-	Logger::out("Stats") << "Complexity:"
-			     << " nv=" << nb_vertices
-			     << " ne=" << nb_edges
-			     << " nf=" << nb_triangles
-			     << std::endl;
-       Logger::out("Stats")  << "      Time: "
-	                     << String::format_time(elapsed_time)
-	                     << std::endl;
     }
 
 
@@ -260,7 +260,19 @@ namespace CSG {
     }
 
     bool Statistics::matches(const Statistics& reference) const {
-	bool OK = true;
+
+
+	Logger::out("Validate") << "    File: " << filename << std::endl;
+	Logger::out("Validate") << "    Time: "
+				<< String::format_time(elapsed_time)
+				<< std::endl;
+	Logger::out("Validate") << "   Sizes:"
+				<< " nv=" << nb_vertices
+				<< " ne=" << nb_edges
+				<< " nf=" << nb_triangles
+				<< std::endl;
+
+	bool geometry_OK = true;
 
 	double volume_threshold =
 	    reference.volume * 0.01 *
@@ -268,12 +280,12 @@ namespace CSG {
 
 	bool volume_OK = ::fabs(volume - reference.volume) < volume_threshold;
 
-	Logger::out("Validate") << "Geometry: "
+	Logger::out("Validate") << "Geometry:"
+				<< " " << (volume_OK ? "OK" : "KO") << " "
 				<< "volume " << volume << " " << reference.volume
-				<< " " << (volume_OK ? "OK" : "KO")
 				<< std::endl;
 
-	OK = OK && volume_OK;
+	geometry_OK = geometry_OK && volume_OK;
 
 	double area_threshold =
 	    reference.area * 0.01 *
@@ -281,38 +293,40 @@ namespace CSG {
 
 	bool area_OK = ::fabs(area - reference.area) < area_threshold;
 
-	Logger::out("Validate") << "Geometry: "
-				<< "area " << area << " " << reference.area
+	Logger::out("Validate") << "Geometry:"
 				<< " " << (area_OK ? "OK" : "KO")
+				<< " area " << area << " " << reference.area
 				<< std::endl;
 
-	OK = OK && area_OK;
+	geometry_OK = geometry_OK && area_OK;
 
-	Logger::out("Validate") << "Topology: "
-				<< "closed " << closed << " "
-				<< "manifold " << manifold
+	Logger::out("Validate") << "Topology:"
 				<< " " << ((closed && manifold) ? "OK" : "KO")
+				<< " closed " << closed
+				<< " manifold " << manifold
 				<< std::endl;
 
-	OK = OK && closed && manifold;
+	bool topology_OK = closed && manifold;
 
-	Logger::out("Validate") << "Topology: "
-				<< "Xi " << Xi << " " << reference.Xi
+	Logger::out("Validate") << "Topology:"
 				<< " " << ((Xi == reference.Xi) ? "OK" : "KO")
+				<< " Xi " << Xi << " " << reference.Xi
 				<< std::endl;
 
-	OK = OK && (Xi == reference.Xi);
+	topology_OK = topology_OK && (Xi == reference.Xi);
 
 	Logger::out("Validate")
-	    << "Topology: "
-	    << "#comp " << nb_components
-	    << " " << reference.nb_components
+	    << "Topology:"
 	    << " " << ((nb_components == reference.nb_components) ? "OK" : "KO")
+	    << " #comp " << nb_components
+	    << " " << reference.nb_components
 	    << std::endl;
 
-	OK = OK && (nb_components == reference.nb_components);
+	topology_OK = topology_OK && (nb_components == reference.nb_components);
 
-	Logger::out("Validate") << "Global result: " << (OK ? "OK" : "KO")
+	bool OK = geometry_OK && topology_OK;
+
+	Logger::out("Validate") << "Combined: " << (OK ? "OK" : "KO")
 				<< std::endl;
 
 	return OK;
