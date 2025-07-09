@@ -35,23 +35,17 @@ namespace CSG {
             return result;
         }
 
-	std::string format_time(double seconds, bool HMS_only) {
-
+	std::string format_time(double seconds) {
 	    std::string result;
-	    if(!HMS_only) {
-		result = String::to_string(seconds) + "s";
-	    }
-
-	    if(seconds >= 60.0) {
-		while(!HMS_only && result.length() <= 10) {
-		    result += " ";
-		}
+	    if(true || seconds >= 60.0) {
 		int S = int(seconds);
 		int H = S / 3600;
 		S = S % 3600;
 		int M = S / 60;
-		S = S % 60;
-		result += String::format("(%02d:%02d:%02d)",H,M,S);
+		double s = seconds - double(H) * 3600.0 - double(M) * 60.0;
+		result += String::format("%2d:%02d:%02.2f",H,M,s);
+	    } else {
+		result = String::to_string(seconds);
 	    }
 
 	    return result;

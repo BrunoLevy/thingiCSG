@@ -60,6 +60,54 @@ namespace {
 	result->merge_duplicated_points();
 	return result;
     }
+
+
+    bool run_one_file(const std::filesystem::path& input) {
+	std::filesystem::path basename = input.filename().replace_extension();
+	std::filesystem::path output = input.parent_path() / String::format(
+	    GEO::CmdLine::get_arg("output").c_str(), basename.c_str()
+	);
+	bool OK = true;
+	try {
+	    CSG::Statistics stats;
+	    std::shared_ptr<Mesh> result;
+	    stats.filename = input;
+	    if(GEO::CmdLine::get_arg("wrap_command") != "") {
+		result = run_wrapped(input);
+	    } else {
+		result = run_internal(input);
+	    }
+	    if(result == nullptr || result->nb_vertices() == 0) {
+		CSG::Logger::err("CSGCompiler")
+		    << "Result is empty" << std::endl;
+		return false;
+	    }
+	    std::filesystem::path stats_file = GEO::CmdLine::get_arg(
+		"stats_file"
+	    );
+	    std::filesystem::path reference_stats_file = GEO::CmdLine::get_arg(
+		"validate:reference_stats_file"
+	    );
+	    mesh_save(*result, output, GEO::CmdLine::get_arg_bool("verbose"));
+	    stats.measure(*result);
+	    if(reference_stats_file == "") {
+		stats.show();
+	    } else {
+		CSG::Statistics reference_stats;
+		reference_stats.load(reference_stats_file, stats.filename);
+		stats.validated = stats.matches(reference_stats);
+		OK = stats.validated;
+	    }
+	    if(stats_file != "") {
+		stats.append_stats_to_file(stats_file);
+	    }
+	} catch(const std::exception& e) {
+	    CSG::Logger::err("CSG") << "Received an exception: "
+				    << e.what() << std::endl;
+	    OK = false;
+	}
+	return OK;
+    }
 }
 
 int main(int argc, char** argv) {
@@ -88,6 +136,8 @@ int main(int argc, char** argv) {
 
     GEO::CmdLine::declare_arg("stats_file", "", "CSV file to store statistics");
 
+    GEO::CmdLine::declare_arg("output", "%s.obj", "Output file name");
+
     GEO::CmdLine::declare_arg_group(
 	"validate", "Mesh validation with reference"
     );
@@ -107,48 +157,27 @@ int main(int argc, char** argv) {
     std::vector<std::string> filenames;
     if(
 	!GEO::CmdLine::parse(
-	    argc, argv, filenames, "csgfilename <outputfile|none>"
+	    argc, argv, filenames, "<csgfilename>*"
 	)
     ) {
 	return 1;
     }
-    if(filenames.size() == 1) {
-	filenames.push_back("out.obj");
-    }
-    bool OK = true;
-    try {
-        CSG::Statistics stats;
-	std::shared_ptr<Mesh> result;
-	stats.filename = std::filesystem::path(filenames[0]).filename();
-	if(GEO::CmdLine::get_arg("wrap_command") != "") {
-	    result = run_wrapped(filenames[0]);
-	} else {
-	    result = run_internal(filenames[0]);
-	}
+
+
+    // Reset stats file if running with multiple files
+    if(filenames.size() > 1) {
 	std::filesystem::path stats_file = GEO::CmdLine::get_arg("stats_file");
-	std::filesystem::path reference_stats_file = GEO::CmdLine::get_arg(
-	    "validate:reference_stats_file"
-	);
-	if(result != nullptr && result->nb_vertices() != 0) {
-	    mesh_save(*result, std::filesystem::path(filenames[1]));
-	    stats.measure(*result);
-	    if(reference_stats_file == "") {
-		stats.show();
-	    } else {
-		CSG::Statistics reference_stats;
-		reference_stats.load(reference_stats_file, stats.filename);
-		stats.validated = stats.matches(reference_stats);
-		OK = stats.validated;
-	    }
-	    if(stats_file != "") {
-		stats.append_stats_to_file(stats_file);
-	    }
-	} else {
-	    CSG::Logger::err("CSGCompiler") << "Result is empty" << std::endl;
+	if(stats_file != "" && std::filesystem::is_regular_file(stats_file)) {
+	    Logger::out("CSG") << "Resetting stats file: " << stats_file
+			       << std::endl;
+	    std::filesystem::remove(stats_file);
 	}
-    } catch(const std::exception& e) {
-	std::cerr << "Received an exception: " << e.what() << std::endl;
-        return 1;
+    }
+
+    bool OK = true;
+    for(const std::string& input: filenames) {
+	bool this_file_OK = run_one_file(input);
+	OK = OK && this_file_OK;
     }
 
     if(OK) {

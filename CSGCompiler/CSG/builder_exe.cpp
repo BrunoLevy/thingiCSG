@@ -112,11 +112,12 @@ namespace CSG {
 	mesh_load(*result, res.string(), verbose_);
 
 	if(result->nb_vertices() == 0) {
-	    Logger::err("CSG")
-		<< "There is no vertex in the output,"
-		<< "something horrible probably happened..."
-		<< std::endl;
-	    exit(-1);
+	    throw(
+		std::logic_error(
+		    "There is no vertex in the output,"
+		    "something horrible probably happened..."
+		)
+	    );
 	}
 
 	return result;

@@ -27,18 +27,13 @@ namespace CSG {
 	validated = false;
         elapsed_time = W.elapsed_time();
 
-	if(mesh.dimension() == 2) {
-	    // TODO
-	    return;
-	}
-
 	// Geometry
 	area = 0.0;
 	volume = 0.0;
 	for(index_t t=0; t<mesh.nb_triangles(); ++t) {
-	    vec3 p1 = mesh.point_3d(mesh.triangle_vertex(t,0));
-	    vec3 p2 = mesh.point_3d(mesh.triangle_vertex(t,1));
-	    vec3 p3 = mesh.point_3d(mesh.triangle_vertex(t,2));
+	    vec3 p1 = mesh.point(mesh.triangle_vertex(t,0));
+	    vec3 p2 = mesh.point(mesh.triangle_vertex(t,1));
+	    vec3 p3 = mesh.point(mesh.triangle_vertex(t,2));
 	    area += 0.5 * length(cross(p2-p1,p3-p1));
 	    volume += dot(p1, cross(p2, p3)) / 6.0;
 	}
@@ -89,7 +84,7 @@ namespace CSG {
 	    b = e;
 	}
 	Xi = int(nb_vertices) - int(nb_edges) + int(nb_triangles);
-	if(manifold && closed) {
+	if(closed && manifold) {
 	    // compute facet adjacency graph. Facet f's neighboring
 	    // facets are f_adj[3*f], f_adj[3*f+1], f_adj[3*f+2]
 	    vector<index_t> f_adj(3*mesh.nb_triangles(),NO_INDEX);
@@ -233,6 +228,9 @@ namespace CSG {
 	while(!in.eof()) {
 	    in.get_line();
 	    in.get_fields(", \t\r\n");
+	    if(in.nb_fields() == 0) {
+		break;
+	    }
 	    if(in.field(filename_field) == mesh_file) {
 		filename = mesh_file;
 		area = in.field_as_double(area_field);
