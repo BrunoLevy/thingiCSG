@@ -1,12 +1,3 @@
 [submodule "BOSL2"]
 	path = DATABASE/BOSL2/BOSL2
 	url = https://github.com/BelfrySCAD/BOSL2.git
-[submodule "CSGCompiler/STB"]
-	path = CSGCompiler/STB
-	url = https://github.com/MethanePowered/STB.git
-[submodule "CSGCompiler/glm"]
-	path = CSGCompiler/glm
-	url = https://github.com/g-truc/glm
-[submodule "CSGCompiler/geogram.psm.Delaunay"]
-	path = CSGCompiler/geogram.psm.Delaunay
-	url = https://github.com/BrunoLevy/geogram.psm.Delaunay.git
