@@ -1,5 +1,5 @@
 include <BOSL2/std.scad>
-module tree(l=1500, sc=0.7, depth=4)
+module tree(l=1500, sc=0.7, depth=5)
     recolor("lightgray")
     cylinder(h=l, d1=l/5, d2=l/5*sc)
         attach(TOP)

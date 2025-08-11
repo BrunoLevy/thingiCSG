@@ -115,7 +115,7 @@ module handlebar() {
             cube([4,4,4],center=true);
             
             // cut the rest off
-            translate([-5,,0])
+            translate([-5,0,0])
             rotate([0,0,0])
             cube([7,16,16],center=true);
         }
