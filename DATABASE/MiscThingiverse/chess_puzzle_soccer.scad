@@ -1,3 +1,4 @@
+// [changes for ThingiCSG: replaced font with DejaVu Sans Mono]
 radius = 30;
 piece_set = "black"; // [black, white]
 spacing = 0.3;
@@ -322,7 +323,7 @@ module hexagon_puzzle(radius, shell_thickness, spacing) {
 module pentagon_for_soccer_puzzle_with_text(height, text) {
 	difference() {
 		pentagon_for_soccer_polyhedron(height);
-		rotate(-18) text(text, font = "MS Gothic", valign = "center", halign = "center", size = height / 7);
+		rotate(-18) text(text, font = "DejaVu Sans Mono", valign = "center", halign = "center", size = height / 7);
 	}	
 }
 
@@ -351,7 +352,7 @@ module pentagon_puzzle_with_text(radius, text, shell_thickness, spacing) {
 module hexagon_for_single_soccer_puzzle_with_text(height, text, spacing) {
 	difference() {
 		hexagon_for_single_soccer_puzzle(height, spacing);
-		translate([0, -height / 45, 0]) rotate(180) text(text, font = "MS Gothic", valign = "center", halign = "center", size = height / 7);
+		translate([0, -height / 45, 0]) rotate(180) text(text, font = "DejaVu Sans Mono", valign = "center", halign = "center", size = height / 7);
 	}
 }
 
