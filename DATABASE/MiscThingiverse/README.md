@@ -115,3 +115,6 @@
 - [coin](https://www.thingiverse.com/thing:3417919)
 - [ovalSlottedConvexBracelet](https://www.thingiverse.com/thing:7361)
 - [heartBracelet,FineHeartBracelet](https://www.thingiverse.com/thing:9771)
+- [cell_like_bracelet, cell_like_bracelet_2](https://www.thingiverse.com/thing:19636)
+- [snowflakerator, snowflakerator_1..9](https://www.thingiverse.com/thing:1159436)
+- [SnowBall_1..9](https://www.thingiverse.com/thing:188481)
